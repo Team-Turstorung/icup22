@@ -106,7 +106,7 @@ if __name__ == '__main__':
     trains = {}
     for i in range(args.num_trains):
         trains['T' + str(i + 1)] = (
-            random.choice(tuple(G.nodes)), random.randint(args.min_train_speed, args.max_train_speed),
+            random.choice([*G.nodes, '*']), random.randint(args.min_train_speed, args.max_train_speed),
             random.randint(args.min_train_capacity, args.max_train_capacity)
         )
     passengers = {}
