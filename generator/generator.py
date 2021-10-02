@@ -5,6 +5,7 @@ import argparse
 import matplotlib.pyplot as plt
 
 
+# adapted from https://stackoverflow.com/a/14618505
 def random_connected_graph(nodes, density=0):
     if density >= 1:
         return nx.complete_graph(nodes)
@@ -93,7 +94,7 @@ if __name__ == '__main__':
     parser.add_argument('--max-group-size', default=5, type=int)
     parser.add_argument('--min-time', default=1, type=int)
     parser.add_argument('--max-time', default=10, type=int)
-    parser.add_argument('--draw', type=bool, default=False)
+    parser.add_argument('--draw', action='store_true')
     args = parser.parse_args()
 
     G = random_connected_graph(['S' + str(i + 1) for i in range(args.stations)], args.density)
