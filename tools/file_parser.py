@@ -53,11 +53,10 @@ def parse_text(text: str):
                                             "destination": line_list[2],
                                             "size": int(line_list[3]),
                                             "time": int(line_list[4])}
-    return make_graph(stations, passengers, train_lines, trains)
+    return make_graph(stations, train_lines)
 
 
-def make_graph(stations: dict, passengers: dict,
-               train_lines: dict, trains: dict):
+def make_graph(stations: dict, train_lines: dict):
     world = nx.Graph()
     for station_id in stations.keys():
         world.add_node(station_id, capacity=stations[station_id]["capacity"])

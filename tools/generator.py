@@ -51,23 +51,22 @@ def random_connected_graph(nodes, density=0):
     return graph
 
 
-def print_example(graph: nx.Graph, trains, passengers,
-                  total_station_capacity, total_train_capacity, path=None):
+def print_example(graph: nx.Graph, trains: dict, passengers: dict, path=None):  # pylint: disable=redefined-outer-name
     if path is not None:
         file = open(path, 'w', encoding='utf-8')
     else:
         file = None
-    print(f"#total_station_capacity: {total_station_capacity}", file=file)
+    print(f"#total_station_capacity: {TOTAL_STATION_CAPACITY}", file=file)
     print("[Stations]", file=file)
-    for node in graph.nodes:
-        print(node, graph.nodes[node]['capacity'], file=file)
+    for current_node in graph.nodes:
+        print(current_node, graph.nodes[current_node]['capacity'], file=file)
     print(file=file)
     print("[Lines]", file=file)
-    for edge in graph.edges:
-        print(graph.edges[edge]['name'], edge[0], edge[1], graph.edges[edge]
-              ['length'], graph.edges[edge]['capacity'], file=file)
+    for current_edge in graph.edges:
+        print(graph.edges[current_edge]['name'], current_edge[0], current_edge[1], graph.edges[current_edge]
+              ['length'], graph.edges[current_edge]['capacity'], file=file)
     print(file=file)
-    print(f"#total_train_capacity: {total_train_capacity}", file=file)
+    print(f"#total_train_capacity: {TOTAL_TRAIN_CAPACITY}", file=file)
     print("[Trains]", file=file)
     for train in trains:
         print(train, *trains[train], file=file)
@@ -126,7 +125,6 @@ if __name__ == '__main__':
         # set num_stations and num_trains roughly to the same value (+-20%)
         args.num_trains = random.randint(
             max(1, math.floor(args.num_stations * 0.8)), math.ceil(args.num_stations * 1.2))
-    # TODO: step 3: more fancy stuff
 
     # some sanity checks
     if args.min_train_capacity < args.max_group_size:
@@ -138,8 +136,8 @@ if __name__ == '__main__':
 
     # keep track of some randomly generated values; TODO: actually use these
     # to fulfill todos in sanity check instead of just giving a warning
-    total_station_capacity = 0
-    total_train_capacity = 0
+    TOTAL_STATION_CAPACITY = 0
+    TOTAL_TRAIN_CAPACITY = 0
 
     # use args to generate the world
     G = random_connected_graph(['S' + str(i + 1)
@@ -147,7 +145,7 @@ if __name__ == '__main__':
     for node in G.nodes:
         station_capacity = random.randint(
             args.min_station_capacity, args.max_station_capacity)
-        total_station_capacity += station_capacity
+        TOTAL_STATION_CAPACITY += station_capacity
         G.nodes[node]['capacity'] = station_capacity
     for edge in G.edges:
         G.edges[edge]['capacity'] = random.randint(
@@ -159,7 +157,7 @@ if __name__ == '__main__':
     for i in range(args.num_trains):
         train_capacity = random.randint(
             args.min_train_capacity, args.max_train_capacity)
-        total_train_capacity += train_capacity
+        TOTAL_TRAIN_CAPACITY += train_capacity
         trains['T' + str(i + 1)] = (
             random.choice([*G.nodes, '*']),
             round(
@@ -176,8 +174,7 @@ if __name__ == '__main__':
                                             args.min_group_size, args.max_group_size),
                                         random.randint(args.min_time, args.max_time))
 
-    print_example(G, trains, passengers, total_station_capacity,
-                  total_train_capacity, args.output)
+    print_example(G, trains, passengers, args.output)
 
     if args.draw:
         nx.draw(G, with_labels=True)
