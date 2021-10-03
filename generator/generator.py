@@ -1,3 +1,4 @@
+import math
 import random
 
 import networkx as nx
@@ -46,11 +47,12 @@ def random_connected_graph(nodes, density=0):
     return graph
 
 
-def print_example(G: nx.Graph, trains, passengers, path=None):
+def print_example(G: nx.Graph, trains, passengers, total_station_capacity, total_train_capacity, path=None ):
     if path is not None:
         f = open(path, 'w')
     else:
         f = None
+    print(f"#total_station_capacity: {total_station_capacity}", file=f)
     print("[Stations]", file=f)
     for node in G.nodes:
         print(node, G.nodes[node]['capacity'], file=f)
@@ -59,11 +61,11 @@ def print_example(G: nx.Graph, trains, passengers, path=None):
     for edge in G.edges:
         print(G.edges[edge]['name'], edge[0], edge[1], G.edges[edge]['length'], G.edges[edge]['capacity'], file=f)
     print(file=f)
+    print(f"#total_train_capacity: {total_train_capacity}", file=f)
     print("[Trains]", file=f)
     for train in trains:
         print(train, *trains[train], file=f)
     print(file=f)
-
     print("[Passengers]", file=f)
     for passenger in passengers:
         print(passenger, *passengers[passenger], file=f)
@@ -75,20 +77,28 @@ def print_example(G: nx.Graph, trains, passengers, path=None):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('output', nargs='?', default=None)
-    parser.add_argument('--stations', default=5, type=int)
     parser.add_argument('--density', default=0, type=float,
                         help='Network density, approx. |E|/|V|^2. 0 is just connected, 1 is fully connected.')
+
+    # stations
+    parser.add_argument('--num-stations', type=int)
     parser.add_argument('--min-station-capacity', default=1, type=int)
     parser.add_argument('--max-station-capacity', default=2, type=int)
+
+    # lines
     parser.add_argument('--min-line-capacity', default=1, type=int)
     parser.add_argument('--max-line-capacity', default=2, type=int)
     parser.add_argument('--min-line-length', default=1, type=int)
     parser.add_argument('--max-line-length', default=5, type=int)
-    parser.add_argument('--num-trains', default=3, type=int)
+
+    # trains
+    parser.add_argument('--num-trains', type=int)
     parser.add_argument('--min-train-speed', default=1, type=int)
     parser.add_argument('--max-train-speed', default=5, type=int)
-    parser.add_argument('--min-train-capacity', default=1, type=int)
-    parser.add_argument('--max-train-capacity', default=2, type=int)
+    parser.add_argument('--min-train-capacity', default=5, type=int)
+    parser.add_argument('--max-train-capacity', default=10, type=int)
+
+    # passengers
     parser.add_argument('--num-passengers', default=5, type=int)
     parser.add_argument('--min-group-size', default=1, type=int)
     parser.add_argument('--max-group-size', default=5, type=int)
@@ -97,18 +107,49 @@ if __name__ == '__main__':
     parser.add_argument('--draw', action='store_true')
     args = parser.parse_args()
 
-    G = random_connected_graph(['S' + str(i + 1) for i in range(args.stations)], args.density)
+    # trying to make world more realistic by "dynamically" adjusting unfilled parameters with respect to the given constraints
+    # step 1: set num_stations if needed
+    if args.num_stations is None:
+        if args.num_trains is None:
+            args.num_trains = random.randint(1, 10)
+        # set num_stations and num_trains roughly to the same value (+-20%)
+        args.num_stations = random.randint(max(5, math.floor(args.num_trains * 0.8)), math.ceil(args.num_trains * 1.2))
+    # step 2: set num_trains if needed
+    if args.num_trains is None:
+        # set num_stations and num_trains roughly to the same value (+-20%)
+        args.num_trains = random.randint(max(1, math.floor(args.num_stations * 0.8)), math.ceil(args.num_stations * 1.2))
+    # TODO: step 3: more fancy stuff
+
+    # some sanity checks
+    if args.min_train_capacity < args.max_group_size:
+        print(
+            "WARNING: passenger groups might be too large to be transported by any train")  # TODO: take this into account when assigning train capacities / group sizes?
+    if args.num_trains > args.num_stations * args.min_station_capacity:
+        print(
+            "WARNING: there might be more trains than stations can hold")  # TODO: take this into account when assigning capacities to stations?
+
+    # keep track of some randomly generated values; TODO: actually use these to fulfill todos in sanity check instead of just giving a warning
+    total_station_capacity = 0
+    total_train_capacity = 0
+
+    # use args to generate the world
+    G = random_connected_graph(['S' + str(i + 1) for i in range(args.num_stations)], args.density)
     for node in G.nodes:
-        G.nodes[node]['capacity'] = random.randint(args.min_station_capacity, args.max_station_capacity)
+        station_capacity = random.randint(args.min_station_capacity, args.max_station_capacity)
+        total_station_capacity += station_capacity
+        G.nodes[node]['capacity'] = station_capacity
     for edge in G.edges:
         G.edges[edge]['capacity'] = random.randint(args.min_line_capacity, args.max_line_capacity)
         G.edges[edge]['length'] = random.randint(args.min_line_length, args.max_line_length)
 
     trains = {}
     for i in range(args.num_trains):
+        train_capacity = random.randint(args.min_train_capacity, args.max_train_capacity)
+        total_train_capacity += train_capacity
         trains['T' + str(i + 1)] = (
-            random.choice([*G.nodes, '*']), round(random.uniform(args.min_train_speed, args.max_train_speed), 5),
-            random.randint(args.min_train_capacity, args.max_train_capacity)
+            random.choice([*G.nodes, '*']),
+            round(random.uniform(args.min_train_speed, args.max_train_speed), 5),
+            train_capacity
         )
     passengers = {}
     for i in range(args.num_passengers):
@@ -116,7 +157,7 @@ if __name__ == '__main__':
                                         random.randint(args.min_group_size, args.max_group_size),
                                         random.randint(args.min_time, args.max_time))
 
-    print_example(G, trains, passengers, args.output)
+    print_example(G, trains, passengers, total_station_capacity, total_train_capacity, args.output)
 
     if args.draw:
         nx.draw(G, with_labels=True)
