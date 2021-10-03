@@ -5,14 +5,13 @@ import matplotlib.pyplot as plt
 def get_mode(line: str, current_mode: str):
     if line == "[stations]":
         return "StationMode", True
-    elif line == "[lines]":
+    if line == "[lines]":
         return "LineMode", True
-    elif line == "[trains]":
+    if line == "[trains]":
         return "TrainMode", True
-    elif line == "[passengers]":
+    if line == "[passengers]":
         return "PassengerMode", True
-    else:
-        return current_mode, False
+    return current_mode, False
 
 
 def parse_text(text: str):
