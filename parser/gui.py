@@ -1,4 +1,3 @@
-"""This module contains the components of the Abfahrt! GUI"""
 import base64
 from file_parser import parse_text
 import dash
