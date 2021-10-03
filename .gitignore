@@ -1,6 +1,7 @@
 .*
 !.gitignore
 !.editorconfig
+!.pylintrc
 
 __pycache__/
 # Environments
