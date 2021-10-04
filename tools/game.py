@@ -1,8 +1,6 @@
 from enum import Enum
 from typing import Union, Optional
 
-import networkx as nx
-
 
 class TrainPositionType(Enum):
     STATION = 0
@@ -35,10 +33,11 @@ class Train:
             self.passenger_groups = passenger_groups
 
     def is_valid(self) -> bool:
-        if self.position_type not in [TrainPositionType.STATION, TrainPositionType.LINE, TrainPositionType.NOT_STARTED]:
+        if self.position_type not in [
+                TrainPositionType.STATION, TrainPositionType.LINE, TrainPositionType.NOT_STARTED]:
             return False
         if self.position_type == TrainPositionType.STATION and (
-            type(self.position).__name__ != 'Station' or self.position is None or self.line_progress is not None):
+                type(self.position).__name__ != 'Station' or self.position is None or self.line_progress is not None):
             return False
         if self.position_type == TrainPositionType.LINE and (
             type(
@@ -50,17 +49,27 @@ class Train:
             return False
         if self.speed <= 0:
             return False
-        if type(self.passenger_groups) != list:
+        if not isinstance(self.passenger_groups, list):
             return False
-        if any([type(group) != PassengerGroup for group in self.passenger_groups]):
+        if any([not isinstance(group, PassengerGroup)
+               for group in self.passenger_groups]):
             return False
-        if sum([group.group_size for group in self.passenger_groups]) > self.capacity:
+        if sum([group.group_size for group in self.passenger_groups]
+               ) > self.capacity:
             return False
         return True
 
+    def __str__(self) -> str:
+        return f"Name: {self.name}, Position: {self.position.name}, Capacity: {self.capacity}"
+
+    def to_dict(self) -> dict:
+        return {"name": self.name, "position": self.position.name if self.position is not None else "",
+                "capacity": self.capacity, "speed": self.speed, "next_station": self.next_station.name if self.next_station is not None else "", "passenger_groups": [passenger_group.name for passenger_group in self.passenger_groups]}
+
 
 class Station:
-    def __init__(self, name: str, capacity: int, trains: list[Train], passenger_groups: list['PassengerGroup']):
+    def __init__(self, name: str, capacity: int,
+                 trains: list[Train], passenger_groups: list['PassengerGroup']):
         self.name = name
         self.capacity = capacity
         self.trains = trains
@@ -69,15 +78,23 @@ class Station:
     def is_valid(self) -> bool:
         if self.capacity < 0:
             return False
-        if type(self.trains) != list:
+        if not isinstance(self.trains, list):
             return False
         if len(self.trains) > self.capacity:
             return False
-        if any([type(train) != Train for train in self.trains]):
+        if any([not isinstance(train, Train) for train in self.trains]):
             return False
-        if any([type(group) != Train for group in self.passenger_groups]):
+        if any([not isinstance(group, Train)
+               for group in self.passenger_groups]):
             return False
         return True
+
+    def __str__(self) -> str:
+        return f"Name: {self.name} Capacity: {self.capacity} Trains: {self.trains}, Passengers: {self.passenger_groups}"
+
+    def to_dict(self) -> dict:
+        return {'name': self.name, "capacity": self.capacity,
+                "trains": [train.name for train in self.trains], "passenger_groups": [passenger_group.name for passenger_group in self.passenger_groups]}
 
 
 class PassengerGroup:
@@ -91,11 +108,14 @@ class PassengerGroup:
         self.time_remaining = time_remaining
 
     def is_valid(self) -> bool:
-        if self.position_type not in [PassengerGroupPositionType.STATION, PassengerGroupPositionType.TRAIN]:
+        if self.position_type not in [
+                PassengerGroupPositionType.STATION, PassengerGroupPositionType.TRAIN]:
             return False
-        if self.position_type == PassengerGroupPositionType.STATION and type(self.position) != Station:
+        if self.position_type == PassengerGroupPositionType.STATION and not isinstance(
+                self.position, Station):
             return False
-        if self.position_type == PassengerGroupPositionType.TRAIN and type(self.position) != Train:
+        if self.position_type == PassengerGroupPositionType.TRAIN and not isinstance(
+                self.position, Train):
             return False
         return True
 
@@ -108,9 +128,14 @@ class PassengerGroup:
     def __repr__(self):
         return self.__str__()
 
+    def to_dict(self) -> dict:
+        return {"name": self.name, "position": self.position.name,
+                "group_size": self.group_size, "destination": self.destination.name, "time_remaining": self.time_remaining}
+
 
 class Line:
-    def __init__(self, name: str, length: float, start: Station, end: Station, capacity: int, trains: list[Train]):
+    def __init__(self, name: str, length: float, start: Station,
+                 end: Station, capacity: int, trains: list[Train]):
         self.name = name
         self.length = length
         self.start = start
@@ -121,21 +146,25 @@ class Line:
     def is_valid(self):
         if self.length <= 0:
             return False
-        if type(self.start) != Station or type(self.end) != Station:
+        if not isinstance(self.start, Station) or not isinstance(
+                self.end, Station):
             return False
         if self.capacity < 0:
             return False
-        if any([type(train) != Train for train in self.trains]):
+        if any([not isinstance(train, Train) for train in self.trains]):
             return False
         if len(self.trains) > self.capacity:
             return False
         return True
 
+    def to_dict(self) -> dict:
+        return {"name": self.name, "length": self.length, "start": self.start.name, "end": self.end.name,
+                "capacity": self.capacity, "trains": [train.name for train in self.trains]}
+
 
 class GameState:
-    def __init__(self, graph: nx.Graph, trains: dict[str, Train], passenger_groups: dict[str, PassengerGroup],
+    def __init__(self, trains: dict[str, Train], passenger_groups: dict[str, PassengerGroup],
                  stations: dict[str, Station], lines: dict[str, Line]):
-        self.graph = graph  # stations and lines and how they are connected (doesn't change)
         self.trains = trains
         self.passenger_groups = passenger_groups
         self.stations = stations
@@ -148,7 +177,8 @@ class GameState:
             [passenger_group.is_valid() for passenger_group in self.passenger_groups.values()])
 
     def is_finished(self):
-        return all([passenger_group.is_destination_reached() for passenger_group in self.passenger_groups.values()])
+        return all([passenger_group.is_destination_reached()
+                   for passenger_group in self.passenger_groups.values()])
 
     def apply(self, action: 'RoundAction'):
         if action.is_zero_round():
@@ -159,7 +189,12 @@ class GameState:
         for train, next_station in action.train_departs:
             if self.trains[train].position_type != TrainPositionType.STATION:
                 raise Exception("Cannot depart train that is not in station")
-            line = self.lines[self.graph.get_edge_data(self.trains[train].position.name, next_station)['id']]
+            current_position = self.trains[train].position
+            next_position = self.trains[train].next_station
+            for current_line in self.lines.values():
+                line = current_line
+                if current_line.start == current_position and current_line.end == next_position:
+                    break
             self.trains[train].position = line
             self.trains[train].position_type = TrainPositionType.LINE
             self.trains[train].next_station = self.stations[next_station]
@@ -173,6 +208,10 @@ class GameState:
         return 'GameState={' + ', '.join(
             [str(self.stations), str(self.lines), str(self.trains), str(self.passenger_groups)]) + '}'
 
+    def to_dict(self) -> dict:
+        return {"trains": {name: train.to_dict()
+                           for (name, train) in self.trains.items()}, "lines": {name: line.to_dict() for (name, line) in self.lines.items()}, "passenger_groups": {name: passenger_group.to_dict() for (name, passenger_group) in self.passenger_groups.items()}, "stations": {name: station.to_dict() for (name, station) in self.stations.items()}}
+
 
 class RoundAction:
     def __init__(self, train_starts: dict[str, str], train_departs: dict[str, str], passenger_boards: dict[str, str],
@@ -184,8 +223,10 @@ class RoundAction:
 
     def is_zero_round(self):
         is_zero_round = len(self.train_starts) == 0
-        if is_zero_round and (len(self.train_departs) != 0 or len(self.passenger_boards) != 0 or len(self.passenger_detrains) != 0):
-            raise Exception("invalid round: should be zero round, but more actions")
+        if is_zero_round and (len(self.train_departs) != 0 or len(
+                self.passenger_boards) != 0 or len(self.passenger_detrains) != 0):
+            raise Exception(
+                "invalid round: should be zero round, but more actions")
         return is_zero_round
 
 
