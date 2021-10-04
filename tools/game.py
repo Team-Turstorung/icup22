@@ -150,6 +150,25 @@ class GameState:
     def is_finished(self):
         return all([passenger_group.is_destination_reached() for passenger_group in self.passenger_groups.values()])
 
+    def apply(self, action: 'RoundAction'):
+        if action.is_zero_round():
+            for train, station in action.train_starts:
+                self.trains[train].position = station
+                self.trains[train].position_type = TrainPositionType.STATION
+            return
+        for train, next_station in action.train_departs:
+            if self.trains[train].position_type != TrainPositionType.STATION:
+                raise Exception("Cannot depart train that is not in station")
+            line = self.lines[self.graph.get_edge_data(self.trains[train].position.name, next_station)['id']]
+            self.trains[train].position = line
+            self.trains[train].position_type = TrainPositionType.LINE
+            self.trains[train].next_station = self.stations[next_station]
+            line.trains.append(self.trains[train])
+        # TODO: implement passenger_board, passenger_detrains
+
+        for passenger_group in self.passenger_groups.values():
+            passenger_group.time_remaining -= 1
+
     def __str__(self):
         return 'GameState={' + ', '.join(
             [str(self.stations), str(self.lines), str(self.trains), str(self.passenger_groups)]) + '}'
@@ -162,6 +181,12 @@ class RoundAction:
         self.train_departs = train_departs
         self.passenger_boards = passenger_boards
         self.passenger_detrains = passenger_detrains
+
+    def is_zero_round(self):
+        is_zero_round = len(self.train_starts) == 0
+        if is_zero_round and (len(self.train_departs) != 0 or len(self.passenger_boards) != 0 or len(self.passenger_detrains) != 0):
+            raise Exception("invalid round: should be zero round, but more actions")
+        return is_zero_round
 
 
 class Schedule:

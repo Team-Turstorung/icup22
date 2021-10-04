@@ -44,7 +44,7 @@ def parse_text(text: str):
                     print("Invalid Line")
                 train_lines[line_list[0]] = Line(line_list[0], float(line_list[3]), stations[line_list[1]],
                                                  stations[line_list[2]], int(line_list[4]), [])
-                graph.add_edge(line_list[1], line_list[2], length=float(line_list[3]), capacity=int(line_list[4]))
+                graph.add_edge(line_list[1], line_list[2], id=line_list[0], length=float(line_list[3]), capacity=int(line_list[4]))
             elif mode == "TrainMode":
                 line_list = line.split()
                 if len(line_list) != 4:
