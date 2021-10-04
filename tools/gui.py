@@ -68,7 +68,7 @@ def get_edge_traces(world: nx.Graph):
 
 
 def make_plotly_map(world: nx.Graph):
-    pos = nx.layout.kamada_kawai_layout(world, weight="length")
+    pos = nx.kamada_kawai_layout(world, weight="length")
     for node in world.nodes:
         world.nodes[node]['pos'] = list(pos[node])
 
@@ -103,6 +103,7 @@ app.layout = html.Div(className="row",
                               },
                               accept="text/plain",
                           ),
+                          html.Div(id="TestOutput"),
                           html.H2("Visualization"),
                           dcc.Graph(
                               id='map',
