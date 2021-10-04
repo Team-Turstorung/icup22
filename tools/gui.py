@@ -1,11 +1,12 @@
 import base64
-from file_parser import parse_text
 import dash
 from dash import html
 from dash import dcc
 from dash.dependencies import Input, Output
 import networkx as nx
 import plotly.graph_objs as go
+
+from tools.file_parser import parse_text
 
 
 def get_node_traces(world: nx.Graph):

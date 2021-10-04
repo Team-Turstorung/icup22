@@ -1,7 +1,7 @@
 from unittest import TestCase
 
 from tools.file_parser import parse_file
-from tools.game import TrainPositionType, PassengerGroupPositionType, GameState, PassengerGroup, Train, Station
+from tools.game import TrainPositionType, PassengerGroupPositionType
 
 
 def create_test_class(dataset):
@@ -77,7 +77,8 @@ TestSimple = create_test_class((
 TestKapazitaet = create_test_class((
     'examples/official/kapazität/input.txt',
     [
-        ('S1', lambda trains: {trains['T1'], trains['T2'], trains['T3'], trains['T4'], trains['T5']}, lambda passenger_groups: {passenger_groups['P1'], passenger_groups['P2'], passenger_groups['P3']}, 5),
+        ('S1', lambda trains: {trains['T1'], trains['T2'], trains['T3'], trains['T4'], trains['T5']},
+         lambda passenger_groups: {passenger_groups['P1'], passenger_groups['P2'], passenger_groups['P3']}, 5),
         ('S2', lambda _: set(), lambda _: set(), 5),
     ],
     [
