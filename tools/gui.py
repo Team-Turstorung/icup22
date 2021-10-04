@@ -84,9 +84,6 @@ app.layout = html.Div(className="row",
                       children=[
                           html.H1(children='Abfahrt! GUI'),
 
-                          dcc.Graph(
-                              id='map',
-                          ),
                           html.H2("Upload input file"),
                           dcc.Upload(
                               id='upload-data',
@@ -105,7 +102,11 @@ app.layout = html.Div(className="row",
                                   'margin': '10px'
                               },
                               accept="text/plain",
-                          )
+                          ),
+                          html.H2("Visualization"),
+                          dcc.Graph(
+                              id='map',
+                          ),
                       ])
 
 ### Callbacks ###
