@@ -7,7 +7,7 @@ from tools.game import TrainPositionType, PassengerGroupPositionType
 def create_test_class(dataset):
     class TestClass(TestCase):
         def setUp(self):
-            self.game_state = parse_file(dataset[0])
+            self.game_state, self.graph = parse_file(dataset[0])
 
         def is_valid(self):
             self.assertTrue(self.game_state.is_valid())
