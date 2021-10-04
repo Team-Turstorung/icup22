@@ -52,6 +52,12 @@ class PassengerGroup:
         self.destination = destination
         self.time_remaining = time_remaining
 
+    def __str__(self):
+        return 'PassengerGroup{' + self.name + '}'
+
+    def __repr__(self):
+        return self.__str__()
+
 
 class Line:
     def __init__(self, name: str, length: float, start: Station, end: Station, capacity: int, trains: list[Train]):
@@ -71,6 +77,9 @@ class GameState:
         self.passenger_groups = passenger_groups
         self.stations = stations
         self.lines = lines
+
+    def __str__(self):
+        return 'GameState={' + ', '.join([str(self.stations), str(self.lines), str(self.trains), str(self.passenger_groups)]) + '}'
 
 
 class RoundAction:
