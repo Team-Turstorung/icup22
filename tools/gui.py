@@ -126,7 +126,7 @@ def update_output(contents):
     else:
         decoded = ""
 
-    world = parse_text(decoded)
+    world = parse_text(decoded).graph
     plot_traces = make_plotly_map(world=world)
     return {
         "data": plot_traces,
