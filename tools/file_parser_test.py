@@ -9,6 +9,9 @@ def create_test_class(dataset):
         def setUp(self):
             self.game_state = parse_file(dataset[0])
 
+        def is_valid(self):
+            self.assertTrue(self.game_state.is_valid())
+
         def test_stations(self):
             self.assertEqual(len(self.game_state.stations), len(dataset[1]))
             for data in dataset[1]:
