@@ -5,8 +5,11 @@ import argparse
 import networkx as nx
 import matplotlib.pyplot as plt
 
+from game import GameState, Station, Line, Train, TrainPositionType, PassengerGroup, PassengerGroupPositionType
 
 # adapted from https://stackoverflow.com/a/14618505
+
+
 def random_connected_graph(nodes, density=0):
     if density >= 1:
         return nx.complete_graph(nodes)
@@ -51,32 +54,145 @@ def random_connected_graph(nodes, density=0):
     return graph
 
 
-def print_example(graph: nx.Graph, trains: dict, passengers: dict, path=None):  # pylint: disable=redefined-outer-name
+def print_example(game_state: GameState, path=None):  # pylint: disable=redefined-outer-name
     if path is not None:
         file = open(path, 'w', encoding='utf-8')
     else:
         file = None
-    print(f"#total_station_capacity: {TOTAL_STATION_CAPACITY}", file=file)
     print("[Stations]", file=file)
-    for current_node in graph.nodes:
-        print(current_node, graph.nodes[current_node]['capacity'], file=file)
+    for station in game_state.stations.values():
+        print(
+            station.name,
+            station.capacity,
+            file=file)
     print(file=file)
     print("[Lines]", file=file)
-    for current_edge in graph.edges:
-        print(graph.edges[current_edge]['name'], current_edge[0], current_edge[1], graph.edges[current_edge]
-              ['length'], graph.edges[current_edge]['capacity'], file=file)
+    for line in game_state.lines.values():
+        print(
+            line.name,
+            line.start.name,
+            line.end.name,
+            line.length,
+            line.capacity,
+            file=file)
     print(file=file)
-    print(f"#total_train_capacity: {TOTAL_TRAIN_CAPACITY}", file=file)
     print("[Trains]", file=file)
-    for train in trains:
-        print(train, *trains[train], file=file)
+    for train in game_state.trains.values():
+        print(
+            train.name,
+            train.position.name if train.position is not None else '*',
+            train.speed,
+            train.capacity,
+            file=file)
     print(file=file)
     print("[Passengers]", file=file)
-    for passenger in passengers:
-        print(passenger, *passengers[passenger], file=file)
+    for passenger in game_state.passenger_groups.values():
+        print(
+            passenger.name,
+            passenger.position.name,
+            passenger.destination.name,
+            passenger.group_size,
+            passenger.time_remaining,
+            file=file)
 
     if path is not None:
         file.close()
+
+
+def generate_game_state(num_stations, num_trains, density, min_line_capacity=1, max_line_capacity=5, min_line_length=1,
+                        max_line_length=10, min_train_speed=1, min_station_capacity=1, max_station_capacity=10, max_train_speed=10, min_train_capacity=1, max_train_capacity=100, num_passengers=10, min_group_size=1, max_group_size=15, min_time=1, max_time=10):
+    if num_stations is None:
+        if num_trains is None:
+            num_trains = random.randint(1, 10)
+        # set num_stations and num_trains roughly to the same value (+-20%)
+        num_stations = random.randint(
+            max(5, math.floor(num_trains * 0.8)), math.ceil(num_trains * 1.2))
+    # step 2: set num_trains if needed
+    if num_trains is None:
+        # set num_stations and num_trains roughly to the same value (+-20%)
+        num_trains = random.randint(
+            max(1, math.floor(num_stations * 0.8)), math.ceil(num_stations * 1.2))
+
+    # some sanity checks
+    if min_train_capacity < max_group_size:
+        print(
+            "WARNING: passenger groups might be too large to be transported by any train")  # TODO: take this into account when assigning train capacities / group sizes?
+    if num_trains > num_stations * min_station_capacity:
+        print(
+            "WARNING: there might be more trains than stations can hold")  # TODO: take this into account when assigning capacities to stations?
+
+    # keep track of some randomly generated values; TODO: actually use these
+    # to fulfill todos in sanity check instead of just giving a warning
+    # TOTAL_STATION_CAPACITY = 0
+    # TOTAL_TRAIN_CAPACITY = 0
+
+    # use args to generate the world
+    graph = random_connected_graph(['S' + str(i + 1)
+                                    for i in range(num_stations)], density)
+    stations = {}
+    lines = {}
+    trains = {}
+    for node in graph.nodes:
+        station_capacity = random.randint(
+            min_station_capacity, max_station_capacity)
+        # TOTAL_STATION_CAPACITY += station_capacity
+        stations[node] = Station(node, station_capacity, [], [])
+
+    for edge in graph.edges:
+        length = random.randint(
+            min_line_length, max_line_length)
+        graph.edges[edge]['weight'] = length
+        name = graph.edges[edge]['name']
+        capacity = random.randint(min_line_capacity, max_line_capacity)
+        lines[name] = Line(name, length, stations[edge[0]],
+                           stations[edge[1]], capacity, [])
+
+    for i in range(num_trains):
+        train_capacity = random.randint(
+            min_train_capacity, max_train_capacity)
+        # TOTAL_TRAIN_CAPACITY += train_capacity
+        name = 'T' + str(i + 1)
+        start = random.choice([*graph.nodes, '*'])
+        speed = round(
+            random.uniform(
+                min_train_speed,
+                max_train_speed),
+            5)
+        if start != '*':
+            trains[name] = Train(
+                name,
+                stations[start],
+                TrainPositionType.STATION,
+                speed,
+                train_capacity,
+                [])
+            stations[start].trains.append(trains[name])
+        else:
+            trains[name] = Train(
+                name,
+                None,
+                TrainPositionType.NOT_STARTED,
+                speed,
+                train_capacity,
+                [])
+    passengers = {}
+    for i in range(num_passengers):
+        name = 'P' + str(i + 1)
+        start = stations[random.choice(tuple(graph.nodes))]
+        destination = stations[random.choice(tuple(graph.nodes))]
+        size = random.randint(
+            min_group_size, max_group_size)
+        time = random.randint(min_time, max_time)
+        passengers[name] = PassengerGroup(
+            name,
+            start,
+            PassengerGroupPositionType.STATION,
+            size,
+            destination,
+            time)
+
+    new_game_state = GameState(trains, passengers, stations, lines)
+    return new_game_state, graph
 
 
 if __name__ == '__main__':
@@ -114,68 +230,11 @@ if __name__ == '__main__':
 
     # trying to make world more realistic by "dynamically" adjusting unfilled parameters with respect to the given constraints
     # step 1: set num_stations if needed
-    if args.num_stations is None:
-        if args.num_trains is None:
-            args.num_trains = random.randint(1, 10)
-        # set num_stations and num_trains roughly to the same value (+-20%)
-        args.num_stations = random.randint(
-            max(5, math.floor(args.num_trains * 0.8)), math.ceil(args.num_trains * 1.2))
-    # step 2: set num_trains if needed
-    if args.num_trains is None:
-        # set num_stations and num_trains roughly to the same value (+-20%)
-        args.num_trains = random.randint(
-            max(1, math.floor(args.num_stations * 0.8)), math.ceil(args.num_stations * 1.2))
+    game_state, network_graph = generate_game_state(
+        args.num_stations, args.num_trains, args.density)
 
-    # some sanity checks
-    if args.min_train_capacity < args.max_group_size:
-        print(
-            "WARNING: passenger groups might be too large to be transported by any train")  # TODO: take this into account when assigning train capacities / group sizes?
-    if args.num_trains > args.num_stations * args.min_station_capacity:
-        print(
-            "WARNING: there might be more trains than stations can hold")  # TODO: take this into account when assigning capacities to stations?
-
-    # keep track of some randomly generated values; TODO: actually use these
-    # to fulfill todos in sanity check instead of just giving a warning
-    TOTAL_STATION_CAPACITY = 0
-    TOTAL_TRAIN_CAPACITY = 0
-
-    # use args to generate the world
-    G = random_connected_graph(['S' + str(i + 1)
-                               for i in range(args.num_stations)], args.density)
-    for node in G.nodes:
-        station_capacity = random.randint(
-            args.min_station_capacity, args.max_station_capacity)
-        TOTAL_STATION_CAPACITY += station_capacity
-        G.nodes[node]['capacity'] = station_capacity
-    for edge in G.edges:
-        G.edges[edge]['capacity'] = random.randint(
-            args.min_line_capacity, args.max_line_capacity)
-        G.edges[edge]['length'] = random.randint(
-            args.min_line_length, args.max_line_length)
-
-    trains = {}
-    for i in range(args.num_trains):
-        train_capacity = random.randint(
-            args.min_train_capacity, args.max_train_capacity)
-        TOTAL_TRAIN_CAPACITY += train_capacity
-        trains['T' + str(i + 1)] = (
-            random.choice([*G.nodes, '*']),
-            round(
-                random.uniform(
-                    args.min_train_speed,
-                    args.max_train_speed),
-                5),
-            train_capacity
-        )
-    passengers = {}
-    for i in range(args.num_passengers):
-        passengers['P' + str(i + 1)] = (random.choice(tuple(G.nodes)), random.choice(tuple(G.nodes)),
-                                        random.randint(
-                                            args.min_group_size, args.max_group_size),
-                                        random.randint(args.min_time, args.max_time))
-
-    print_example(G, trains, passengers, args.output)
+    print_example(game_state, args.output)
 
     if args.draw:
-        nx.draw(G, with_labels=True)
+        nx.draw(network_graph, with_labels=True)
         plt.show()
