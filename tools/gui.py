@@ -8,9 +8,9 @@ from dash.dependencies import Input, Output, State
 import networkx as nx
 import plotly.graph_objects as go
 
-from tools.generator import generate_game_state
-from tools.file_parser import parse_text
-from tools.game import GameState, Station, Line, Train, TrainPositionType, PassengerGroup, PassengerGroupPositionType  # pylint: disable=unused-import
+from generator import generate_game_state
+from file_parser import parse_text
+from game import GameState, Station, Line, Train, TrainPositionType, PassengerGroup, PassengerGroupPositionType  # pylint: disable=unused-import
 
 
 def get_node_traces(world: nx.Graph, stations: dict,
@@ -205,12 +205,13 @@ app.layout = html.Div(
 # Callback to handle input file
 
 
-@ app.callback([Output('map', 'figure'), Output('storeGraph', 'data'), Output('storeGameState', 'data')],
+@ app.callback([Output('map', 'figure'), Output('storeGraph', 'data'), Output('storeGameState', 'data'), Output('upload-data', 'contents')],
                [Input('upload-data', 'contents'),
                 Input('generateButton', 'n_clicks')],
                [State('storeGraph', 'data'), State('storeGameState', 'data')])
 def update_output(contents, n_clicks, traces, game_state):
     if contents is not None:
+        print("test")
         _, content_string = contents.split(',')
 
         decoded = base64.b64decode(content_string)
@@ -222,6 +223,7 @@ def update_output(contents, n_clicks, traces, game_state):
         game_state, graph = generate_game_state(20, 5, 0)
         plot_traces = make_plotly_map_from_game_state(game_state, graph)
         game_state = game_state.to_dict()
+        print("piepe")
     else:
         game_state = game_state or {}
         plot_traces = traces
@@ -245,7 +247,7 @@ def update_output(contents, n_clicks, traces, game_state):
                 'showgrid': False,
                 'zeroline': False,
                 'showticklabels': False},
-            height=1000)}, plot_traces, game_state
+            height=1000)}, plot_traces, game_state, None
 
 
 @ app.callback(Output('stationTable', 'data'),
