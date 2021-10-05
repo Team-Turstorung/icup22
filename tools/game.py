@@ -32,13 +32,10 @@ class Train:
             TrainPositionType.STATION, TrainPositionType.LINE, TrainPositionType.NOT_STARTED]:
             return False
         if self.position_type == TrainPositionType.STATION and (
-            type(self.position).__name__ != 'Station' or self.position is None or self.line_progress is not None):
+            (not isinstance(self.position, Station)) or self.position is None):
             return False
         if self.position_type == TrainPositionType.LINE and (
-            type(
-                self.position).__name__ != 'Line' or self.position is None or self.line_progress is None or self.line_progress < 0 or self.line_progress >= self.position.length):
-            return False
-        if self.next_station is None:
+            (not isinstance(self.position, Line)) or self.position is None or self.line_progress is None or self.line_progress < 0 or self.line_progress >= self.position.length or self.next_station is None):
             return False
         if self.capacity < 0:
             return False
@@ -84,7 +81,7 @@ class Station:
             return False
         if any([not isinstance(train, Train) for train in self.trains]):
             return False
-        if any([not isinstance(group, Train)
+        if any([not isinstance(group, PassengerGroup)
                 for group in self.passenger_groups]):
             return False
         return True
@@ -186,26 +183,25 @@ class GameState:
 
     def apply(self, action: 'RoundAction'):
         if action.is_zero_round():
-            for train_id, station in action.train_starts:
+            for train_id in action.train_starts:
                 train = self.trains[train_id]
+                station = self.stations[action.train_starts[train_id]]
                 if train.position_type != TrainPositionType.NOT_STARTED or train.position is not None:
                     raise Exception("cannot start train that has been started")
                 train.position = station
                 train.position_type = TrainPositionType.STATION
+                station.trains.append(train)
             return
-        for train, next_station in action.train_departs:
-            if self.trains[train].position_type != TrainPositionType.STATION:
+        for train_id in action.train_departs:
+            train = self.trains[train_id]
+            line = self.lines[action.train_departs[train_id]]
+            if train.position_type != TrainPositionType.STATION:
                 raise Exception("Cannot depart train that is not in station")
-            current_position = self.trains[train].position
-            next_position = self.trains[train].next_station
-            for current_line in self.lines.values():
-                line = current_line
-                if current_line.start == current_position and current_line.end == next_position:
-                    break
-            self.trains[train].position = line
-            self.trains[train].position_type = TrainPositionType.LINE
-            self.trains[train].next_station = self.stations[next_station]
-            line.trains.append(self.trains[train])
+            line.trains.append(train)
+            train.position.trains.remove(train)
+            train.next_station = line.start if line.start != train.position else line.end
+            train.position = line
+            train.position_type = TrainPositionType.LINE
         for group_id in action.passenger_detrains:
             passenger_group = self.passenger_groups[group_id]
             train = passenger_group.position
@@ -215,10 +211,11 @@ class GameState:
             passenger_group.position_type = PassengerGroupPositionType.STATION
             passenger_group.position = train.position
             train.passenger_groups.remove(passenger_group)
-            station.passenger_groups.append(passenger_group)
-        for train_id, passenger_group_id in action.passenger_boards:
-            train = self.trains[train_id]
+            if not passenger_group.is_destination_reached():
+                station.passenger_groups.append(passenger_group)
+        for passenger_group_id in action.passenger_boards:
             passenger_group = self.passenger_groups[passenger_group_id]
+            train = self.trains[action.passenger_boards[passenger_group_id]]
             station = passenger_group.position
             if train.position_type != TrainPositionType.STATION or passenger_group.position_type != PassengerGroupPositionType.STATION or passenger_group.position != train.position:
                 raise Exception("passenger group and train must be at the same station to board")
@@ -232,7 +229,11 @@ class GameState:
         for train in self.trains.values():
             if train.position_type == TrainPositionType.LINE:
                 if train.line_progress + train.speed >= train.position.length:
+                    train.position_type = TrainPositionType.STATION
+                    train.position.trains.remove(train)
                     train.position = train.next_station
+                    train.position.trains.append(train)
+                    train.next_station = None
                 else:
                     train.line_progress += train.speed
 
@@ -275,7 +276,7 @@ class RoundAction:
     passenger_detrains: list[str] = field(default_factory=list)
 
     def is_zero_round(self):
-        is_zero_round = len(self.train_starts) == 0
+        is_zero_round = len(self.train_starts) != 0
         if is_zero_round and (len(self.train_departs) != 0 or len(
             self.passenger_boards) != 0 or len(self.passenger_detrains) != 0):
             raise Exception(

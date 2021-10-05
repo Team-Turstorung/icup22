@@ -184,11 +184,3 @@ def parse_output_file(file_path: str) -> Schedule:
     with open(file_path, 'r', encoding='utf-8') as file:
         text = file.read()
         return parse_output_text(text)
-
-
-# Testcode
-if __name__ == "__main__":
-    test_world, new_graph = parse_input_file("examples/official/simple/input.txt")
-    schedule = parse_output_file("examples/official/simple/output.txt")
-    test_world.apply_all(schedule)
-    assert test_world.is_finished()
