@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 
 from tools.game import GameState, Station, Line, Train, TrainPositionType, PassengerGroup, PassengerGroupPositionType
 
+
 # adapted from https://stackoverflow.com/a/14618505
 
 
@@ -46,7 +47,7 @@ def random_connected_graph(nodes, density=0):
     while missing_edges > 0:
         n_1, n_2 = random.choice(nodes), random.choice(nodes)
         if not graph.has_edge(n_1, n_2) and not graph.has_edge(
-                n_2, n_1) and n_1 != n_2:
+            n_2, n_1) and n_1 != n_2:
             graph.add_edge(n_1, n_2, name='L' + str(edge_counter))
             edge_counter += 1
             missing_edges -= 1
@@ -99,19 +100,27 @@ def print_example(game_state: GameState, path=None):  # pylint: disable=redefine
         file.close()
 
 
-def generate_game_state(num_stations, num_trains, density, min_line_capacity=1, max_line_capacity=5, min_line_length=1,
-                        max_line_length=10, min_train_speed=1, min_station_capacity=1, max_station_capacity=10, max_train_speed=10, min_train_capacity=1, max_train_capacity=100, num_passengers=10, min_group_size=1, max_group_size=15, min_time=1, max_time=10):
-    if num_stations is None:
-        if num_trains is None:
-            num_trains = random.randint(1, 10)
-        # set num_stations and num_trains roughly to the same value (+-20%)
-        num_stations = random.randint(
-            max(5, math.floor(num_trains * 0.8)), math.ceil(num_trains * 1.2))
-    # step 2: set num_trains if needed
-    if num_trains is None:
-        # set num_stations and num_trains roughly to the same value (+-20%)
-        num_trains = random.randint(
-            max(1, math.floor(num_stations * 0.8)), math.ceil(num_stations * 1.2))
+def generate_game_state(**kwargs):
+    num_stations = kwargs.get('num_stations', random.randint(5, 10))
+    num_trains = kwargs.get('num_trains', random.randint(
+        max(1, math.floor(num_stations * 0.5)), math.ceil(num_stations * 1.2)))
+    num_passengers = kwargs.get('num_passengers', random.randint(1, math.floor(num_stations * 0.5)))
+    density = kwargs.get('density', 0)
+
+    min_line_capacity = kwargs.get('min_line_capacity', 1)
+    max_line_capacity = kwargs.get('max_line_capacity', 5)
+    min_line_length = kwargs.get('min_line_length', 1)
+    max_line_length = kwargs.get('max_line_length', 10)
+    min_train_speed = kwargs.get('min_train_speed', 1)
+    max_train_speed = kwargs.get('max_train_speed', 10)
+    min_station_capacity = kwargs.get('min_station_capacity', 1)
+    max_station_capacity = kwargs.get('max_station_capacity', 5)
+    min_train_capacity = kwargs.get('min_train_capacity', 1)
+    max_train_capacity = kwargs.get('max_train_capacity', 60)
+    min_group_size = kwargs.get('min_group_size', 1)
+    max_group_size = kwargs.get('min_group_size', 15)
+    min_time = kwargs.get('min_time', 1)
+    max_time = kwargs.get('min_time', 10)
 
     # some sanity checks
     if min_train_capacity < max_group_size:
@@ -203,35 +212,35 @@ if __name__ == '__main__':
 
     # stations
     parser.add_argument('--num-stations', type=int)
-    parser.add_argument('--min-station-capacity', default=1, type=int)
-    parser.add_argument('--max-station-capacity', default=2, type=int)
+    parser.add_argument('--min-station-capacity', type=int)
+    parser.add_argument('--max-station-capacity', type=int)
 
     # lines
-    parser.add_argument('--min-line-capacity', default=1, type=int)
-    parser.add_argument('--max-line-capacity', default=2, type=int)
-    parser.add_argument('--min-line-length', default=1, type=int)
-    parser.add_argument('--max-line-length', default=5, type=int)
+    parser.add_argument('--min-line-capacity', type=int)
+    parser.add_argument('--max-line-capacity', type=int)
+    parser.add_argument('--min-line-length', type=int)
+    parser.add_argument('--max-line-length', type=int)
 
     # trains
     parser.add_argument('--num-trains', type=int)
-    parser.add_argument('--min-train-speed', default=1, type=int)
-    parser.add_argument('--max-train-speed', default=5, type=int)
-    parser.add_argument('--min-train-capacity', default=5, type=int)
-    parser.add_argument('--max-train-capacity', default=10, type=int)
+    parser.add_argument('--min-train-speed', type=int)
+    parser.add_argument('--max-train-speed', type=int)
+    parser.add_argument('--min-train-capacity', type=int)
+    parser.add_argument('--max-train-capacity', type=int)
 
     # passengers
-    parser.add_argument('--num-passengers', default=5, type=int)
-    parser.add_argument('--min-group-size', default=1, type=int)
-    parser.add_argument('--max-group-size', default=5, type=int)
-    parser.add_argument('--min-time', default=1, type=int)
-    parser.add_argument('--max-time', default=10, type=int)
+    parser.add_argument('--num-passengers', type=int)
+    parser.add_argument('--min-group-size', type=int)
+    parser.add_argument('--max-group-size', type=int)
+    parser.add_argument('--min-time', type=int)
+    parser.add_argument('--max-time', type=int)
     parser.add_argument('--draw', action='store_true')
     args = parser.parse_args()
 
-    # trying to make world more realistic by "dynamically" adjusting unfilled parameters with respect to the given constraints
-    # step 1: set num_stations if needed
+    args_dict = vars(args)
+
     game_state, network_graph = generate_game_state(
-        args.num_stations, args.num_trains, args.density)
+        **{key: args_dict[key] for key in args_dict if args_dict[key] is not None})
 
     print_example(game_state, args.output)
 

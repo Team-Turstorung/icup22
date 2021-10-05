@@ -220,7 +220,7 @@ def update_output(contents, n_clicks, traces, game_state):
         plot_traces = make_plotly_map_from_game_state(game_state, graph)
         game_state = game_state.to_dict()
     elif n_clicks is not None:
-        game_state, graph = generate_game_state(20, 5, 0)
+        game_state, graph = generate_game_state(num_stations=20, num_trains=5)
         plot_traces = make_plotly_map_from_game_state(game_state, graph)
         game_state = game_state.to_dict()
         print("piepe")
