@@ -8,9 +8,9 @@ from dash.dependencies import Input, Output, State
 import networkx as nx
 import plotly.graph_objects as go
 
-from generator import generate_game_state
-from file_parser import parse_text
-from game import GameState, Station, Line, Train, TrainPositionType, PassengerGroup, PassengerGroupPositionType  # pylint: disable=unused-import
+from tools.generator import generate_game_state
+from tools.file_parser import parse_text
+from tools.game import GameState, Station, Line, Train, TrainPositionType, PassengerGroup, PassengerGroupPositionType  # pylint: disable=unused-import
 
 
 def get_node_traces(world: nx.Graph, stations: dict,

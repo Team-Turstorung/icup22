@@ -5,7 +5,7 @@ import argparse
 import networkx as nx
 import matplotlib.pyplot as plt
 
-from game import GameState, Station, Line, Train, TrainPositionType, PassengerGroup, PassengerGroupPositionType
+from tools.game import GameState, Station, Line, Train, TrainPositionType, PassengerGroup, PassengerGroupPositionType
 
 # adapted from https://stackoverflow.com/a/14618505
 

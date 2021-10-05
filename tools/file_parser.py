@@ -1,7 +1,7 @@
 import networkx as nx
 import matplotlib.pyplot as plt
 
-from game import GameState, Station, Line, Train, TrainPositionType, PassengerGroup, PassengerGroupPositionType
+from tools.game import GameState, Station, Line, Train, TrainPositionType, PassengerGroup, PassengerGroupPositionType
 
 
 def get_mode(line: str, current_mode: str):
