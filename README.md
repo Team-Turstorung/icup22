@@ -3,7 +3,7 @@
 Run GUI with `python -m tools.gui`. Run generator with `python -m tools.generator`.
 
 This script runs all the tests of the pipeline. Add it to `.git/hooks/pre-commit` and make it executable. Then all the checks will be performed before commiting.
-```
+```bash
 #!/bin/bash
 
 # Exit if one of the following commands fails
