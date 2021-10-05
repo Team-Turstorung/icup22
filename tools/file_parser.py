@@ -85,7 +85,7 @@ def parse_text(text: str):
                         next_station=None,
                         passenger_groups=[])
                 else:
-                    trains[station_name] = Train(
+                    trains[train_name] = Train(
                         name=train_name,
                         position_type=TrainPositionType.STATION,
                         speed=speed,
@@ -94,7 +94,7 @@ def parse_text(text: str):
                         line_progress=0,
                         next_station=None,
                         passenger_groups=[])
-                    stations[position.name].trains.append(trains[station_name])
+                    stations[position.name].trains.append(trains[train_name])
             elif mode == "PassengerMode":
                 line_list = line.split()
                 if len(line_list) != 5:
@@ -143,7 +143,7 @@ def parse_file(file_path: str):
 
 # Testcode
 if __name__ == "__main__":
-    test_world, new_graph = parse_file("user_worlds/newInput.txt")
+    test_world, new_graph = parse_file("examples/official/simple/input.txt")
     print(test_world.to_dict())
     nx.draw(new_graph)
     plt.show()
