@@ -212,7 +212,8 @@ class GameState:
         return {"trains": {name: train.to_dict()
                            for (name, train) in self.trains.items()}, "lines": {name: line.to_dict() for (name, line) in self.lines.items()}, "passenger_groups": {name: passenger_group.to_dict() for (name, passenger_group) in self.passenger_groups.items()}, "stations": {name: station.to_dict() for (name, station) in self.stations.items()}}
 
-    def serialize(self) -> str:  # pylint: disable=redefined-outer-name
+    def serialize(self) -> str:
+        # Note: this only works properly on initial game states (such as ones generated randomly)
         output = ""
         output += "[Stations]\n"
         for station in self.stations.values():
