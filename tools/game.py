@@ -14,16 +14,17 @@ class PassengerGroupPositionType(Enum):
     TRAIN = 1
 
 
-@dataclass
+@dataclass(order=True)
 class Train:
     name: str
-    position_type: TrainPositionType
+    position_type: TrainPositionType = field(compare=False)
     speed: float
     capacity: int
-    position: Union['Station', 'Train', None]
+    position: Union['Station', 'Train', None] = field(compare=False)
     line_progress: float = 0
-    next_station: 'Station' = None
-    passenger_groups: list['PassengerGroup'] = field(default_factory=list)
+    next_station: 'Station' = field(compare=False, default=None)
+    passenger_groups: list['PassengerGroup'] = field(
+        default_factory=list, compare=False)
 
     def is_valid(self) -> bool:
         if self.position_type not in [
@@ -52,17 +53,24 @@ class Train:
             return False
         return True
 
+    def __repr__(self):
+        return 'Train{' + self.name + '}'
+
+    def __str__(self):
+        return 'Train{' + self.name + '}'
+
     def to_dict(self) -> dict:
         return {"name": self.name, "position": self.position.name if self.position is not None else "",
                 "capacity": self.capacity, "speed": self.speed, "next_station": self.next_station.name if self.next_station is not None else "", "passenger_groups": [passenger_group.name for passenger_group in self.passenger_groups]}
 
 
-@dataclass()
+@dataclass(order=True)
 class Station:
     name: str
     capacity: int
-    trains: list['Train'] = field(default_factory=list)
-    passenger_groups: list['PassengerGroup'] = field(default_factory=list)
+    trains: list['Train'] = field(default_factory=list, compare=False)
+    passenger_groups: list['PassengerGroup'] = field(
+        default_factory=list, compare=False)
 
     def is_valid(self) -> bool:
         if self.capacity < 0:
@@ -83,13 +91,13 @@ class Station:
                 "trains": [train.name for train in self.trains], "passenger_groups": [passenger_group.name for passenger_group in self.passenger_groups]}
 
 
-@dataclass()
+@dataclass(order=True)
 class PassengerGroup:
     name: str
-    position: Union['Train', 'Station']
+    position: Union['Train', 'Station'] = field(compare=False)
     position_type: PassengerGroupPositionType
     group_size: int
-    destination: 'Station'
+    destination: 'Station' = field(compare=False)
     time_remaining: int
 
     def is_valid(self) -> bool:
