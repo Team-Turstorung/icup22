@@ -47,7 +47,7 @@ def random_connected_graph(nodes, density=0):
     while missing_edges > 0:
         n_1, n_2 = random.choice(nodes), random.choice(nodes)
         if not graph.has_edge(n_1, n_2) and not graph.has_edge(
-            n_2, n_1) and n_1 != n_2:
+                n_2, n_1) and n_1 != n_2:
             graph.add_edge(n_1, n_2, name='L' + str(edge_counter))
             edge_counter += 1
             missing_edges -= 1
@@ -55,11 +55,14 @@ def random_connected_graph(nodes, density=0):
     return graph
 
 
-def generate_game_state(**kwargs) -> [GameState, nx.Graph]:
+def generate_game_state(**kwargs) -> tuple[GameState, nx.Graph]:
     num_stations = kwargs.get('num_stations', random.randint(5, 10))
     num_trains = kwargs.get('num_trains', random.randint(
         max(1, math.floor(num_stations * 0.5)), math.ceil(num_stations * 1.2)))
-    num_passengers = kwargs.get('num_passengers', random.randint(1, math.floor(num_stations * 0.5)))
+    num_passengers = kwargs.get(
+        'num_passengers', random.randint(
+            1, math.floor(
+                num_stations * 0.5)))
     density = kwargs.get('density', 0)
 
     min_line_capacity = kwargs.get('min_line_capacity', 1)
@@ -85,11 +88,6 @@ def generate_game_state(**kwargs) -> [GameState, nx.Graph]:
         print(
             "WARNING: there might be more trains than stations can hold")  # TODO: take this into account when assigning capacities to stations?
 
-    # keep track of some randomly generated values; TODO: actually use these
-    # to fulfill todos in sanity check instead of just giving a warning
-    # TOTAL_STATION_CAPACITY = 0
-    # TOTAL_TRAIN_CAPACITY = 0
-
     # use args to generate the world
     graph = random_connected_graph(['S' + str(i + 1)
                                     for i in range(num_stations)], density)
@@ -99,8 +97,11 @@ def generate_game_state(**kwargs) -> [GameState, nx.Graph]:
     for node in graph.nodes:
         station_capacity = random.randint(
             min_station_capacity, max_station_capacity)
-        # TOTAL_STATION_CAPACITY += station_capacity
-        stations[node] = Station(node, station_capacity, [], [])
+        stations[node] = Station(
+            name=node,
+            capacity=station_capacity,
+            trains=[],
+            passenger_groups=[])
 
     for edge in graph.edges:
         length = random.randint(
@@ -108,13 +109,12 @@ def generate_game_state(**kwargs) -> [GameState, nx.Graph]:
         graph.edges[edge]['weight'] = length
         name = graph.edges[edge]['name']
         capacity = random.randint(min_line_capacity, max_line_capacity)
-        lines[name] = Line(name, length, stations[edge[0]],
-                           stations[edge[1]], capacity, [])
+        lines[name] = Line(name=name, length=length, start=stations[edge[0]],
+                           end=stations[edge[1]], capacity=capacity, trains=[])
 
     for i in range(num_trains):
         train_capacity = random.randint(
             min_train_capacity, max_train_capacity)
-        # TOTAL_TRAIN_CAPACITY += train_capacity
         name = 'T' + str(i + 1)
         start = random.choice([*graph.nodes, '*'])
         speed = round(
@@ -124,21 +124,21 @@ def generate_game_state(**kwargs) -> [GameState, nx.Graph]:
             5)
         if start != '*':
             trains[name] = Train(
-                name,
-                stations[start],
-                TrainPositionType.STATION,
-                speed,
-                train_capacity,
-                [])
+                name=name,
+                position=stations[start],
+                position_type=TrainPositionType.STATION,
+                speed=speed,
+                capacity=train_capacity,
+                passenger_groups=[])
             stations[start].trains.append(trains[name])
         else:
             trains[name] = Train(
-                name,
-                None,
-                TrainPositionType.NOT_STARTED,
-                speed,
-                train_capacity,
-                [])
+                name=name,
+                position=None,
+                position_type=TrainPositionType.NOT_STARTED,
+                speed=speed,
+                capacity=train_capacity,
+                passenger_groups=[])
     passengers = {}
     for i in range(num_passengers):
         name = 'P' + str(i + 1)
@@ -148,12 +148,12 @@ def generate_game_state(**kwargs) -> [GameState, nx.Graph]:
             min_group_size, max_group_size)
         time = random.randint(min_time, max_time)
         passengers[name] = PassengerGroup(
-            name,
-            start,
-            PassengerGroupPositionType.STATION,
-            size,
-            destination,
-            time)
+            name=name,
+            position=start,
+            position_type=PassengerGroupPositionType.STATION,
+            group_size=size,
+            destination=destination,
+            time_remaining=time)
 
     new_game_state = GameState(trains, passengers, stations, lines)
     return new_game_state, graph

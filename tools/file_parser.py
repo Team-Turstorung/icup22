@@ -37,41 +37,79 @@ def parse_text(text: str):
                 line_list = line.split()
                 if len(line_list) != 2:
                     print("Invalid station")
-                stations[line_list[0]] = Station(
-                    line_list[0], int(line_list[1]), [], [])
-                graph.add_node(line_list[0])
+
+                station_name = line_list[0]
+                capacity = int(line_list[1])
+                stations[station_name] = Station(
+                    name=station_name, capacity=capacity, trains=[], passenger_groups=[])
+                graph.add_node(station_name)
             elif mode == "LineMode":
                 line_list = line.split()
                 if len(line_list) != 5:
                     print("Invalid Line")
-                train_lines[line_list[0]] = Line(line_list[0], float(line_list[3]), stations[line_list[1]],
-                                                 stations[line_list[2]], int(line_list[4]), [])
+
+                line_name = line_list[0]
+                length = float(line_list[3])
+                start = stations[line_list[1]]
+                end = stations[line_list[2]]
+                capacity = int(line_list[4])
+                train_lines[line_name] = Line(
+                    name=line_name,
+                    length=length,
+                    start=start,
+                    end=end,
+                    capacity=capacity,
+                    trains=[])
                 graph.add_edge(
                     line_list[1],
                     line_list[2],
-                    weight=float(
-                        line_list[3]), name=line_list[0])
+                    weight=length,
+                    name=line_name)
             elif mode == "TrainMode":
                 line_list = line.split()
                 if len(line_list) != 4:
                     print("Invalid Train")
-                if line_list[1] == '*':
-                    trains[line_list[0]] = Train(name=line_list[0], position=None, position_type=TrainPositionType.NOT_STARTED, speed=float(
-                        line_list[2]), capacity=int(line_list[3]), passenger_groups=[])
+                train_name = line_list[0]
+                position = stations[line_list[1]
+                                    ] if line_list[1] != '*' else None
+                train_capacity = int(line_list[3])
+                speed = float(line_list[2])
+                if position is None:
+                    trains[train_name] = Train(
+                        name=train_name,
+                        position_type=TrainPositionType.NOT_STARTED,
+                        speed=speed,
+                        capacity=train_capacity,
+                        position=position,
+                        line_progress=0,
+                        next_station=None,
+                        passenger_groups=[])
                 else:
-                    trains[line_list[0]] = Train(name=line_list[0], position=stations[line_list[1]], position_type=TrainPositionType.STATION, speed=float(
-                        line_list[2]), capacity=int(line_list[3]), passenger_groups=[])
-                    stations[line_list[1]].trains.append(trains[line_list[0]])
+                    trains[station_name] = Train(
+                        name=train_name,
+                        position_type=TrainPositionType.STATION,
+                        speed=speed,
+                        capacity=train_capacity,
+                        position=position,
+                        line_progress=0,
+                        next_station=None,
+                        passenger_groups=[])
+                    stations[position.name].trains.append(trains[station_name])
             elif mode == "PassengerMode":
                 line_list = line.split()
                 if len(line_list) != 5:
                     print("Invalid Passenger")
-                passenger_groups[line_list[0]] = PassengerGroup(name=line_list[0], position=stations[line_list[1]],
-                                                                position_type=PassengerGroupPositionType.STATION, group_size=int(
-                                                                    line_list[3]),
-                                                                destination=stations[line_list[2]], time_remaining=int(line_list[4]))
-                stations[line_list[1]].passenger_groups.append(
-                    passenger_groups[line_list[0]])
+                passenger_group_name = line_list[0]
+                position = stations[line_list[1]]
+                destination = stations[line_list[2]]
+                position_type = PassengerGroupPositionType.STATION
+                group_size = int(line_list[3])
+                time_remaining = int(line_list[4])
+                passenger_groups[passenger_group_name] = PassengerGroup(name=passenger_group_name, position=position,
+                                                                        position_type=position_type, group_size=group_size,
+                                                                        destination=destination, time_remaining=time_remaining)
+                stations[position.name].passenger_groups.append(
+                    passenger_groups[passenger_group_name])
 
     game_state = GameState(
         trains,
@@ -105,6 +143,7 @@ def parse_file(file_path: str):
 
 # Testcode
 if __name__ == "__main__":
-    test_world = parse_file("newInput.txt")
-    nx.draw(test_world.graph)
+    test_world, new_graph = parse_file("user_worlds/newInput.txt")
+    print(test_world.to_dict())
+    nx.draw(new_graph)
     plt.show()
