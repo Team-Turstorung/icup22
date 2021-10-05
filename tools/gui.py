@@ -9,7 +9,7 @@ import networkx as nx
 import plotly.graph_objects as go
 
 from tools.generator import generate_game_state
-from tools.file_parser import parse_text
+from tools.file_parser import parse_input_text
 from tools.game import GameState, Station, Line, Train, TrainPositionType, PassengerGroup, PassengerGroupPositionType  # pylint: disable=unused-import
 
 
@@ -215,7 +215,7 @@ def update_output(contents, n_clicks, traces, game_state):
 
         decoded = base64.b64decode(content_string)
         decoded = decoded.decode('utf-8')
-        game_state, graph = parse_text(decoded)
+        game_state, graph = parse_input_text(decoded)
         plot_traces = make_plotly_map_from_game_state(game_state, graph)
         game_state = game_state.to_dict()
     elif n_clicks is not None:

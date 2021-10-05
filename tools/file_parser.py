@@ -1,7 +1,9 @@
-import networkx as nx
-import matplotlib.pyplot as plt
+from collections import defaultdict
 
-from tools.game import GameState, Station, Line, Train, TrainPositionType, PassengerGroup, PassengerGroupPositionType
+import networkx as nx
+
+from tools.game import GameState, Station, Line, Train, TrainPositionType, PassengerGroup, PassengerGroupPositionType, \
+    Schedule, RoundAction
 
 
 def get_mode(line: str, current_mode: str):
@@ -16,7 +18,7 @@ def get_mode(line: str, current_mode: str):
     return current_mode, False
 
 
-def parse_text(text: str):
+def parse_input_text(text: str) -> [GameState, nx.Graph]:
     trains = {}
     passenger_groups = {}
     stations = {}
@@ -120,6 +122,43 @@ def parse_text(text: str):
     return game_state, graph
 
 
+def get_output_mode(line: str, current_mode: str, current_mode_id: str) -> (str, bool, str):
+    if line.startswith("[Train:") and line.endswith("]"):
+        return "TrainMode", True, line[7:-1]
+    if line.startswith("[Passenger") and line.endswith("]"):
+        return "PassengerMode", True, line[11:-1]
+    return current_mode, False, current_mode_id
+
+
+def parse_output_text(text: str) -> Schedule:
+    sched = Schedule(actions=defaultdict(RoundAction))
+    mode = "unknown"
+    mode_id = ""
+    lines = text.splitlines()
+    for line in lines:
+        line = line.strip()
+        mode, changed, mode_id = get_output_mode(line, mode, mode_id)
+        if not (line.startswith('#') or line == '' or changed):
+            line_list = line.split()
+            if mode == "TrainMode":
+                if line_list[1] == "Start":
+                    if line_list[0] != "0":
+                        raise Exception("trains must be started in round 0")
+                    sched.actions[0].train_starts[mode_id] = line_list[2]
+                elif line_list[1] == "Depart":
+                    sched.actions[int(line_list[0])].train_departs[mode_id] = line_list[2]
+                else:
+                    raise Exception("invalid line " + line)
+            elif mode == "PassengerMode":
+                if line_list[1] == "Detrain":
+                    sched.actions[int(line_list[0])].passenger_detrains.append(mode_id)
+                elif line_list[1] == "Board":
+                    sched.actions[int(line_list[0])].passenger_boards[mode_id] = line_list[2]
+                else:
+                    raise Exception("invalid line " + line)
+    return sched
+
+
 def make_graph(stations: dict, train_lines: dict):
     world = nx.Graph()
     for station_id in stations.keys():
@@ -135,15 +174,21 @@ def make_graph(stations: dict, train_lines: dict):
     return world
 
 
-def parse_file(file_path: str):
+def parse_input_file(file_path: str) -> (GameState, nx.Graph):
     with open(file_path, 'r', encoding='utf-8') as file:
         text = file.read()
-        return parse_text(text)
+        return parse_input_text(text)
+
+
+def parse_output_file(file_path: str) -> Schedule:
+    with open(file_path, 'r', encoding='utf-8') as file:
+        text = file.read()
+        return parse_output_text(text)
 
 
 # Testcode
 if __name__ == "__main__":
-    test_world, new_graph = parse_file("examples/official/simple/input.txt")
-    print(test_world.to_dict())
-    nx.draw(new_graph)
-    plt.show()
+    test_world, new_graph = parse_input_file("examples/official/simple/input.txt")
+    schedule = parse_output_file("examples/official/simple/output.txt")
+    test_world.apply_all(schedule)
+    assert test_world.is_finished()

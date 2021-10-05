@@ -1,13 +1,13 @@
 from unittest import TestCase
 
-from tools.file_parser import parse_file
+from tools.file_parser import parse_input_file, parse_output_file
 from tools.game import TrainPositionType, PassengerGroupPositionType
 
 
 def create_test_class(dataset):
     class TestClass(TestCase):
         def setUp(self):
-            self.game_state, self.graph = parse_file(dataset[0])
+            self.game_state, self.graph = parse_input_file(dataset[0])
             print(self.game_state.to_dict())
 
         def is_valid(self):
@@ -128,3 +128,33 @@ TestKapazitaet = create_test_class((
          lambda stations: stations['S2'], 1, 4),
     ],
 ))
+
+
+class TestSimpleOutput(TestCase):
+
+    def setUp(self) -> None:
+        self.schedule = parse_output_file('examples/official/simple/output.txt')
+
+    def test_length(self):
+        self.assertEqual(max(self.schedule.actions.keys()), 7)
+
+    def test_train_departs(self):
+        for i in range(8):
+            self.assertDictEqual(self.schedule.actions[i].train_departs, {'T1': 'L1', 'T2': 'L2'} if i == 2 else {})
+
+    def test_train_starts(self):
+        for i in range(8):
+            self.assertDictEqual(self.schedule.actions[i].train_starts, {'T2': 'S2'} if i == 0 else {})
+
+    def test_passenger_detrains(self):
+        for i in range(8):
+            detrains = []
+            if i == 3:
+                detrains = ['P1']
+            elif i == 7:
+                detrains = ['P2']
+            self.assertListEqual(self.schedule.actions[i].passenger_detrains, detrains)
+
+    def test_passenger_boards(self):
+        for i in range(8):
+            self.assertDictEqual(self.schedule.actions[i].passenger_boards, {'P1': 'T1', 'P2': 'T2'} if i == 1 else {})
