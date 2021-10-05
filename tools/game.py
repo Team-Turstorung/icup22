@@ -1,5 +1,6 @@
 from enum import Enum
-from typing import Union, Optional
+from typing import Union
+from dataclasses import dataclass, field
 
 
 class TrainPositionType(Enum):
@@ -13,24 +14,16 @@ class PassengerGroupPositionType(Enum):
     TRAIN = 1
 
 
+@dataclass
 class Train:
-    def __init__(self, name: str, position: Union['Station', 'Line', None], position_type: TrainPositionType,
-                 speed: float, capacity: int,
-                 passenger_groups: list['PassengerGroup'], line_progress: Optional[int] = None,
-                 next_station: Optional['Station'] = None):
-
-        self.name = name
-        self.position = position
-        self.position_type = position_type
-        self.next_station = next_station  # makes sense when on line
-        self.line_progress = line_progress  # distance driven on line
-
-        self.speed = speed
-        self.capacity = capacity
-        if passenger_groups is None:
-            self.passenger_groups = []
-        else:
-            self.passenger_groups = passenger_groups
+    name: str
+    position_type: TrainPositionType
+    speed: float
+    capacity: int
+    position: Union['Station', 'Train', None]
+    line_progress: float = 0
+    next_station: 'Station' = None
+    passenger_groups: list['PassengerGroup'] = field(default_factory=list)
 
     def is_valid(self) -> bool:
         if self.position_type not in [
@@ -52,28 +45,24 @@ class Train:
         if not isinstance(self.passenger_groups, list):
             return False
         if any([not isinstance(group, PassengerGroup)
-               for group in self.passenger_groups]):
+                for group in self.passenger_groups]):
             return False
         if sum([group.group_size for group in self.passenger_groups]
                ) > self.capacity:
             return False
         return True
 
-    def __str__(self) -> str:
-        return f"Name: {self.name}, Position: {self.position.name}, Capacity: {self.capacity}"
-
     def to_dict(self) -> dict:
         return {"name": self.name, "position": self.position.name if self.position is not None else "",
                 "capacity": self.capacity, "speed": self.speed, "next_station": self.next_station.name if self.next_station is not None else "", "passenger_groups": [passenger_group.name for passenger_group in self.passenger_groups]}
 
 
+@dataclass()
 class Station:
-    def __init__(self, name: str, capacity: int,
-                 trains: list[Train], passenger_groups: list['PassengerGroup']):
-        self.name = name
-        self.capacity = capacity
-        self.trains = trains
-        self.passenger_groups = passenger_groups
+    name: str
+    capacity: int
+    trains: list['Train'] = field(default_factory=list)
+    passenger_groups: list['PassengerGroup'] = field(default_factory=list)
 
     def is_valid(self) -> bool:
         if self.capacity < 0:
@@ -85,27 +74,23 @@ class Station:
         if any([not isinstance(train, Train) for train in self.trains]):
             return False
         if any([not isinstance(group, Train)
-               for group in self.passenger_groups]):
+                for group in self.passenger_groups]):
             return False
         return True
-
-    def __str__(self) -> str:
-        return f"Name: {self.name} Capacity: {self.capacity} Trains: {self.trains}, Passengers: {self.passenger_groups}"
 
     def to_dict(self) -> dict:
         return {'name': self.name, "capacity": self.capacity,
                 "trains": [train.name for train in self.trains], "passenger_groups": [passenger_group.name for passenger_group in self.passenger_groups]}
 
 
+@dataclass()
 class PassengerGroup:
-    def __init__(self, name: str, position: Union[Train, Station], position_type: PassengerGroupPositionType,
-                 group_size: int, destination: Station, time_remaining: int):
-        self.name = name
-        self.position = position  # train or station passenger is on
-        self.position_type = position_type
-        self.group_size = group_size
-        self.destination = destination
-        self.time_remaining = time_remaining
+    name: str
+    position: Union['Train', 'Station']
+    position_type: PassengerGroupPositionType
+    group_size: int
+    destination: 'Station'
+    time_remaining: int
 
     def is_valid(self) -> bool:
         if self.position_type not in [
@@ -133,15 +118,14 @@ class PassengerGroup:
                 "group_size": self.group_size, "destination": self.destination.name, "time_remaining": self.time_remaining}
 
 
+@dataclass()
 class Line:
-    def __init__(self, name: str, length: float, start: Station,
-                 end: Station, capacity: int, trains: list[Train]):
-        self.name = name
-        self.length = length
-        self.start = start
-        self.end = end
-        self.capacity = capacity
-        self.trains = trains
+    name: str
+    length: float
+    start: 'Station'
+    end: 'Station'
+    capacity: int
+    trains: list['Train'] = field(default_factory=list)
 
     def is_valid(self):
         if self.length <= 0:
@@ -213,7 +197,8 @@ class GameState:
                            for (name, train) in self.trains.items()}, "lines": {name: line.to_dict() for (name, line) in self.lines.items()}, "passenger_groups": {name: passenger_group.to_dict() for (name, passenger_group) in self.passenger_groups.items()}, "stations": {name: station.to_dict() for (name, station) in self.stations.items()}}
 
     def serialize(self) -> str:
-        # Note: this only works properly on initial game states (such as ones generated randomly)
+        # Note: this only works properly on initial game states (such as ones
+        # generated randomly)
         output = ""
         output += "[Stations]\n"
         for station in self.stations.values():
