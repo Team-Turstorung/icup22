@@ -200,7 +200,7 @@ if __name__ == '__main__':
     if args.output is None:
         print(game_state.serialize())
     else:
-        with open(args.output, 'w') as f:
+        with open(args.output, 'w', encoding='utf-8') as f:
             f.write(game_state.serialize())
 
     if args.draw:
