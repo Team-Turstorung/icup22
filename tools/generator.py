@@ -55,52 +55,7 @@ def random_connected_graph(nodes, density=0):
     return graph
 
 
-def print_example(game_state: GameState, path=None):  # pylint: disable=redefined-outer-name
-    if path is not None:
-        file = open(path, 'w', encoding='utf-8')
-    else:
-        file = None
-    print("[Stations]", file=file)
-    for station in game_state.stations.values():
-        print(
-            station.name,
-            station.capacity,
-            file=file)
-    print(file=file)
-    print("[Lines]", file=file)
-    for line in game_state.lines.values():
-        print(
-            line.name,
-            line.start.name,
-            line.end.name,
-            line.length,
-            line.capacity,
-            file=file)
-    print(file=file)
-    print("[Trains]", file=file)
-    for train in game_state.trains.values():
-        print(
-            train.name,
-            train.position.name if train.position is not None else '*',
-            train.speed,
-            train.capacity,
-            file=file)
-    print(file=file)
-    print("[Passengers]", file=file)
-    for passenger in game_state.passenger_groups.values():
-        print(
-            passenger.name,
-            passenger.position.name,
-            passenger.destination.name,
-            passenger.group_size,
-            passenger.time_remaining,
-            file=file)
-
-    if path is not None:
-        file.close()
-
-
-def generate_game_state(**kwargs):
+def generate_game_state(**kwargs) -> [GameState, nx.Graph]:
     num_stations = kwargs.get('num_stations', random.randint(5, 10))
     num_trains = kwargs.get('num_trains', random.randint(
         max(1, math.floor(num_stations * 0.5)), math.ceil(num_stations * 1.2)))
@@ -242,7 +197,11 @@ if __name__ == '__main__':
     game_state, network_graph = generate_game_state(
         **{key: args_dict[key] for key in args_dict if args_dict[key] is not None})
 
-    print_example(game_state, args.output)
+    if args.output is None:
+        print(game_state.serialize())
+    else:
+        with open(args.output, 'w') as f:
+            f.write(game_state.serialize())
 
     if args.draw:
         nx.draw(network_graph, with_labels=True)

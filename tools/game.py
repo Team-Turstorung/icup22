@@ -212,6 +212,22 @@ class GameState:
         return {"trains": {name: train.to_dict()
                            for (name, train) in self.trains.items()}, "lines": {name: line.to_dict() for (name, line) in self.lines.items()}, "passenger_groups": {name: passenger_group.to_dict() for (name, passenger_group) in self.passenger_groups.items()}, "stations": {name: station.to_dict() for (name, station) in self.stations.items()}}
 
+    def serialize(self) -> str:  # pylint: disable=redefined-outer-name
+        output = ""
+        output += "[Stations]\n"
+        for station in self.stations.values():
+            output += f"{station.name} {station.capacity}\n"
+        output += "\n[Lines]\n"
+        for line in self.lines.values():
+            output += f"{line.name} {line.start.name} {line.end.name} {line.length} {line.capacity}\n"
+        output += "\n[Trains]\n"
+        for train in self.trains.values():
+            output += f"{train.name} {train.position.name if train.position_type == TrainPositionType.STATION else '*'} {train.speed} {train.capacity}\n"
+        output += "\n[Passengers]\n"
+        for passenger in self.passenger_groups.values():
+            output += f"{passenger.name} {passenger.position.name} {passenger.destination.name} {passenger.group_size} {passenger.time_remaining}\n"
+        return output
+
 
 class RoundAction:
     def __init__(self, train_starts: dict[str, str], train_departs: dict[str, str], passenger_boards: dict[str, str],
