@@ -54,12 +54,14 @@ def get_node_traces(world: nx.Graph, stations: dict,
 
         if len(current_passenger_groups) == 0:
             hovertext += "<br>Passengers: 0/0"
-            opacity = 0.4
+            symbol = "circle-dot"
+            opacity = 0.6
         else:
             passenger_count = 0
             for passenger_group in current_passenger_groups:
                 passenger_count += passenger_group.group_size
             hovertext += f"<br>Passengers: {len(current_passenger_groups)}/{passenger_count}"
+            symbol = "diamond"
             opacity = 1
 
         node_trace['hovertext'] += tuple([hovertext])
@@ -69,7 +71,7 @@ def get_node_traces(world: nx.Graph, stations: dict,
         node_trace['y'] += tuple([y])
         node_trace['text'] += tuple([node])
         node_trace['marker'] = {
-            "color": color, "size": station.capacity * 5 + 5, "opacity": opacity}
+            "color": color, "size": station.capacity * 3 + 5, "symbol": symbol, "opacity": opacity}
         trace_list.append(node_trace)
     return trace_list
 
@@ -139,7 +141,8 @@ def filter_passenger_groups_on_line(x):
     return x[1].position_type == PassengerGroupPositionType.TRAIN
 
 
-def make_plotly_map_from_game_state(game_state: GameState, graph: nx.Graph):
+def make_plotly_map_from_game_state(
+        game_state: GameState, graph: nx.Graph):
     pos = nx.kamada_kawai_layout(graph)
     for node in graph:
         graph.nodes[node]['pos'] = list(pos[node])
@@ -164,10 +167,15 @@ def make_plotly_map_from_game_state(game_state: GameState, graph: nx.Graph):
 app = dash.Dash(__name__)
 app.layout = html.Div(
     children=[
-        html.Div(children=[
-            dcc.Store(id='storeGraph', storage_type='session'),
-            dcc.Store(id='storeGameState', storage_type='session'),
-            html.H1(children='Abfahrt! GUI'),
+        # Define Storages
+        dcc.Store(id='storeGraph', storage_type='session'),
+        dcc.Store(id='storeGameState', storage_type='session'),
+        # Title div
+        html.Div([html.H1("Abfahrt! GUI")],
+                 className="row",
+                 style={'textAlign': "center"}),
+        # Input section
+        html.Div(className="row", children=[
             html.H2("Generate new Map"),
             html.Button("Generate", id='generateButton'),
             html.H2("Upload input file"),
@@ -189,28 +197,76 @@ app.layout = html.Div(
                 },
                 accept="text/plain",
             ),
-            html.Div(id="TestOutput"),
-            html.H2("Visualization"),
-            dcc.Graph(
-                id='map',
-            ), ], style={'width': '75%', 'display': 'inline-block', "overflow": ""}),
-        html.Div(children=["All Trains",
-                           dt.DataTable(id="stationTable", columns=[
-                                        {'name': "Name", "id": "name"}, {'name': "Position", "id": "position"}, {"name": "Capacity", "id": "capacity"}, {"name": "speed", "id": "speed"}, {"name": "Passengers", "id": "passengers"}])
-                           ],
-                 style={'display': "inline-block", 'height': "100%", 'width': "20%"})])
+            html.H2("Resize Graph"),
+            html.Div(children=[
+                html.Button("Bigger", id='bigger_button'),
+                html.Button("Smaller", id='smaller_button')
+            ]),
+
+        ]),
+        # Row with visualization
+        html.Div(className="row", children=[
+            # First column with information about all passengers and trains
+            html.Div(className="two columns", style={"height": "100vh", "overflow": "scroll", "position": "sticky", "top": "0"}, children=[
+                html.Div(style={}, children=[
+                    html.H2("Trains"),
+                    dt.DataTable(id="table_trains", columns=[
+                        {
+                            'name': "Name", "id": "name"}, {
+                            'name': "Position", "id": "position"}, {
+                            "name": "Capacity", "id": "capacity"}, {
+                            "name": "speed", "id": "speed"}, {
+                            "name": "Passengers", "id": "passengers"}
+                    ], filter_action="native",
+                        sort_action="native",
+                        sort_mode="multi",
+                    )
+                ]),
+            ]),
+            # Second column
+            html.Div(className="eight columns", children=[
+                html.H2("Visualization", style={"text-align": "center"}),
+                dcc.Graph(
+                    id='map',
+                ),
+            ]),
+            # Third Column with information about passengers and trains of
+            # station
+            html.Div(className="two columns", style={"height": "100vh", "overflow": "scroll", "position": "sticky", "top": "0"}, children=[
+                html.Div(style={}, children=[
+                    html.H2("Passengers"),
+                    dt.DataTable(id="table_passengers", columns=[
+                        {
+                            'name': "Name", "id": "name"}, {
+                            'name': "Position", "id": "position"}, {
+                            "name": "Size", "id": "group_size"},
+                    ], filter_action="native",
+                        sort_action="native",
+                        sort_mode="multi",
+                    )
+                ],
+                )
+            ]
+            )
+        ]),
+    ])
+
 
 ### Callbacks ###
 
 # Callback to handle input file
 
 
-@ app.callback([Output('map', 'figure'), Output('storeGraph', 'data'), Output('storeGameState', 'data'), Output('upload-data', 'contents')],
+@ app.callback([Output('map', 'figure'), Output('storeGraph', 'data'), Output('storeGameState', 'data')],
                [Input('upload-data', 'contents'),
-                Input('generateButton', 'n_clicks')],
+                Input('generateButton', 'n_clicks'),
+                Input('smaller_button', 'n_clicks'),
+                Input('bigger_button', 'n_clicks'),
+                Input('map', 'figure')],
                [State('storeGraph', 'data'), State('storeGameState', 'data')])
-def update_output(contents, n_clicks, traces, game_state):
-    if contents is not None:
+def update_output(contents, _, __, ___, figure: go.Figure, traces, game_state):
+    ctx = dash.callback_context
+    if ctx.triggered[0]['prop_id'] == 'upload-data.contents':
         _, content_string = contents.split(',')
 
         decoded = base64.b64decode(content_string)
@@ -218,10 +274,52 @@ def update_output(contents, n_clicks, traces, game_state):
         game_state, graph = parse_input_text(decoded)
         plot_traces = make_plotly_map_from_game_state(game_state, graph)
         game_state = game_state.to_dict()
-    elif n_clicks is not None:
-        game_state, graph = generate_game_state(num_stations=20, num_trains=5)
-        plot_traces = make_plotly_map_from_game_state(game_state, graph)
+    elif ctx.triggered[0]['prop_id'] == 'generateButton.n_clicks':
+        game_state, graph = generate_game_state(num_stations=20, num_trains=70)
+        plot_traces = make_plotly_map_from_game_state(
+            game_state, graph)
         game_state = game_state.to_dict()
+    elif 'button' in ctx.triggered[0]['prop_id']:
+        new_traces = []
+        if 'bigger' in ctx.triggered[0]['prop_id']:
+            for trace in traces:
+                if 'marker' in trace:
+                    trace['marker']['size'] = trace['marker']['size'] + 2
+                else:
+                    trace['line']['width'] = trace['line']['width'] + 1
+                    print(trace)
+                new_scatter = go.Scatter(trace)
+                new_traces.append(new_scatter)
+        else:
+            for trace in traces:
+                if 'marker' in trace:
+                    trace['marker']['size'] = trace['marker']['size'] - 2
+                else:
+                    trace['line']['width'] = trace['line']['width'] - 1
+                    print(trace)
+                new_scatter = go.Scatter(trace)
+                new_traces.append(new_scatter)
+        figure = go.Figure(data=new_traces, layout=go.Layout(
+            title='Map full of stations and train lines',
+            showlegend=False,
+            hovermode='closest',
+            margin={
+                'b': 40,
+                'l': 40,
+                'r': 40,
+                't': 40},
+            xaxis={
+                'showgrid': False,
+                'zeroline': False,
+                'showticklabels': False},
+            yaxis={
+                'showgrid': False,
+                'zeroline': False,
+                'showticklabels': False},
+            height=1000)
+
+        )
+        return figure, traces, game_state or {}
     else:
         game_state = game_state or {}
         plot_traces = traces
@@ -245,25 +343,29 @@ def update_output(contents, n_clicks, traces, game_state):
                 'showgrid': False,
                 'zeroline': False,
                 'showticklabels': False},
-            height=1000)}, plot_traces, game_state, None
+            height=1000)}, plot_traces, game_state
 
 
-@ app.callback(Output('stationTable', 'data'),
-               Input('map', 'hoverData'),
-               State('storeGameState', 'data'))
-def update_trains(hover_data, game_state):
-    trains = []
+@ app.callback([Output('table_trains', 'filter_query'), Output('table_passengers', 'filter_query')],
+               Input('map', 'clickData'))
+def update_query(hover_data):
+    query = ""
     if hover_data is not None:
-        if hover_data['points'][0]['text'] in game_state['stations']:
-            data = hover_data['points'][0]['customdata']
-            passenger_groups = []
-            for passenger_group in data['passengers']:
-                passenger_groups.append(
-                    game_state['passenger_groups'][passenger_group])
-            trains = []
-            for train in data['trains']:
-                trains.append(game_state['trains'][train])
-    return trains
+        query = '{position} = ' + hover_data['points'][0]['text']
+    return query, query
+
+
+@ app.callback([Output('table_trains', 'data'), Output('table_passengers', 'data')],
+               Input('storeGameState', 'data'))
+def initialize_tables(game_state):
+    sorted_stations = []
+    sorted_trains = []
+    if game_state is not None:
+        trains = game_state['trains'].values()
+        stations = game_state['passenger_groups'].values()
+        sorted_trains = sorted(trains, key=lambda train: train['name'])
+        sorted_stations = sorted(stations, key=lambda station: station['name'])
+    return sorted_trains, sorted_stations
 
 
 # Start App
