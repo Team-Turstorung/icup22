@@ -207,16 +207,15 @@ app.layout = html.Div(
         # Row with visualization
         html.Div(className="row", children=[
             # First column with information about all passengers and trains
-            html.Div(className="two columns", style={"height": "100vh", "overflow": "scroll", "position": "sticky", "top": "0"}, children=[
+            html.Div(className="three columns", style={"height": "100vh", "overflow": "scroll", "position": "sticky", "top": "0"}, children=[
                 html.Div(style={}, children=[
                     html.H2("Trains"),
                     dt.DataTable(id="table_trains", columns=[
-                        {
-                            'name': "Name", "id": "name"}, {
-                            'name': "Position", "id": "position"}, {
-                            "name": "Capacity", "id": "capacity"}, {
-                            "name": "speed", "id": "speed"}, {
-                            "name": "Passengers", "id": "passengers"}
+                        {'name': "Name", "id": "name"},
+                        {'name': "Position", "id": "position"},
+                        {"name": "Capacity", "id": "capacity", "hideable": True},
+                        {"name": "speed", "id": "speed", "hideable": True},
+                        {"name": "Passengers", "id": "passengers", "hideable": True}
                     ], filter_action="native",
                         sort_action="native",
                         sort_mode="multi",
@@ -224,7 +223,7 @@ app.layout = html.Div(
                 ]),
             ]),
             # Second column
-            html.Div(className="eight columns", children=[
+            html.Div(className="six columns", children=[
                 html.H2("Visualization", style={"text-align": "center"}),
                 dcc.Graph(
                     id='map',
@@ -232,14 +231,14 @@ app.layout = html.Div(
             ]),
             # Third Column with information about passengers and trains of
             # station
-            html.Div(className="two columns", style={"height": "100vh", "overflow": "scroll", "position": "sticky", "top": "0"}, children=[
+            html.Div(className="three columns", style={"height": "100vh", "overflow": "scroll", "position": "sticky", "top": "0"}, children=[
                 html.Div(style={}, children=[
                     html.H2("Passengers"),
                     dt.DataTable(id="table_passengers", columns=[
-                        {
-                            'name': "Name", "id": "name"}, {
-                            'name': "Position", "id": "position"}, {
-                            "name": "Size", "id": "group_size"},
+                        {'name': "Name", "id": "name"},
+                        {'name': "Position", "id": "position"},
+                        {"name": "Size", "id": "group_size", "hideable": True},
+                        {'name': "Time", "id": 'time_remaining', "hideable": True}
                     ], filter_action="native",
                         sort_action="native",
                         sort_mode="multi",
@@ -275,7 +274,8 @@ def update_output(contents, _, __, ___, figure: go.Figure, traces, game_state):
         plot_traces = make_plotly_map_from_game_state(game_state, graph)
         game_state = game_state.to_dict()
     elif ctx.triggered[0]['prop_id'] == 'generateButton.n_clicks':
-        game_state, graph = generate_game_state(num_stations=20, num_trains=70)
+        game_state, graph = generate_game_state(
+            num_stations=200, num_trains=70, num_passengers=60)
         plot_traces = make_plotly_map_from_game_state(
             game_state, graph)
         game_state = game_state.to_dict()
