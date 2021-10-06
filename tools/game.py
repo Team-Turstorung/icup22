@@ -13,6 +13,7 @@ class TrainPositionType(Enum):
 class PassengerGroupPositionType(Enum):
     STATION = 0
     TRAIN = 1
+    DESTINATION_REACHED = 2
 
 
 @dataclass(order=True)
@@ -104,13 +105,15 @@ class PassengerGroup:
 
     def is_valid(self) -> bool:
         if self.position_type not in [
-            PassengerGroupPositionType.STATION, PassengerGroupPositionType.TRAIN]:
+            PassengerGroupPositionType.STATION, PassengerGroupPositionType.TRAIN, PassengerGroupPositionType.DESTINATION_REACHED]:
             return False
         if self.position_type == PassengerGroupPositionType.STATION and not isinstance(
             self.position, Station):
             return False
         if self.position_type == PassengerGroupPositionType.TRAIN and not isinstance(
             self.position, Train):
+            return False
+        if self.position_type == PassengerGroupPositionType.DESTINATION_REACHED and self.position is not None:
             return False
         if self.group_size <= 0:
             return False
@@ -119,7 +122,7 @@ class PassengerGroup:
         return True
 
     def is_destination_reached(self) -> bool:
-        return self.position == self.destination
+        return self.position_type == PassengerGroupPositionType.DESTINATION_REACHED
 
     def __str__(self):
         return 'PassengerGroup{' + self.name + '}'
@@ -183,7 +186,8 @@ class GameState:
 
     def apply_all(self, schedule: 'Schedule'):
         num_rounds = max(schedule.actions.keys())
-        for i in range(num_rounds+1):
+        start_round = 0 if schedule.actions[0].is_zero_round() else 1
+        for i in range(start_round, num_rounds+1):
             self.apply(schedule.actions[i])
             if not self.is_valid():
                 raise Exception("invalid state after round", i)
@@ -199,6 +203,11 @@ class GameState:
                 train.position_type = TrainPositionType.STATION
                 station.trains.append(train)
             return
+
+        for passenger_group in self.passenger_groups.values():
+            if not passenger_group.is_destination_reached():
+                passenger_group.time_remaining -= 1
+
         for train_id in action.train_departs:
             train = self.trains[train_id]
             line = self.lines[action.train_departs[train_id]]
@@ -212,13 +221,16 @@ class GameState:
         for group_id in action.passenger_detrains:
             passenger_group = self.passenger_groups[group_id]
             train = passenger_group.position
-            station = passenger_group.position
+            station = train.position
             if passenger_group.position_type != PassengerGroupPositionType.TRAIN or train.position_type != TrainPositionType.STATION:
                 raise Exception("passenger group must be in a train that is in a station to detrain")
-            passenger_group.position_type = PassengerGroupPositionType.STATION
-            passenger_group.position = train.position
             train.passenger_groups.remove(passenger_group)
-            if not passenger_group.is_destination_reached():
+            if station == passenger_group.destination:
+                passenger_group.position = None
+                passenger_group.position_type = PassengerGroupPositionType.DESTINATION_REACHED
+            else:
+                passenger_group.position_type = PassengerGroupPositionType.STATION
+                passenger_group.position = train.position
                 station.passenger_groups.append(passenger_group)
         for passenger_group_id in action.passenger_boards:
             passenger_group = self.passenger_groups[passenger_group_id]
@@ -231,8 +243,6 @@ class GameState:
             station.passenger_groups.remove(passenger_group)
             train.passenger_groups.append(passenger_group)
 
-        for passenger_group in self.passenger_groups.values():
-            passenger_group.time_remaining -= 1
         for train in self.trains.values():
             if train.position_type == TrainPositionType.LINE:
                 if train.line_progress + train.speed >= train.position.length:
