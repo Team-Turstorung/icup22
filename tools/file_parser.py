@@ -141,6 +141,8 @@ def parse_output_text(text: str) -> Schedule:
         if not (line.startswith('#') or line == '' or changed):
             line_list = line.split()
             if mode == "TrainMode":
+                if len(line_list) != 3:
+                    raise Exception(f"train action '{line}' must have 3 arguments")
                 if line_list[1] == "Start":
                     if line_list[0] != "0":
                         raise Exception("trains must be started in round 0")
@@ -148,14 +150,20 @@ def parse_output_text(text: str) -> Schedule:
                 elif line_list[1] == "Depart":
                     sched.actions[int(line_list[0])].train_departs[mode_id] = line_list[2]
                 else:
-                    raise Exception("invalid line " + line)
+                    raise Exception(f"invalid line '{line}'")
             elif mode == "PassengerMode":
+                if len(line_list) < 2:
+                    raise Exception(f"passenger action '{line}' must have 2+ arguments")
                 if line_list[1] == "Detrain":
                     sched.actions[int(line_list[0])].passenger_detrains.append(mode_id)
                 elif line_list[1] == "Board":
+                    if len(line_list) != 3:
+                        raise Exception(f"boarding action '{line}' must have 3 arguments")
                     sched.actions[int(line_list[0])].passenger_boards[mode_id] = line_list[2]
                 else:
-                    raise Exception("invalid line " + line)
+                    raise Exception(f"invalid line '{line}'")
+            else:
+                raise Exception(f"mode unclear for '{line}'")
     return sched
 
 
