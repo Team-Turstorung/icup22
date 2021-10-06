@@ -6,6 +6,7 @@ def test_simple():
     schedule = parse_output_file("examples/official/simple/output.txt")
     test_world.apply_all(schedule)
     assert test_world.is_finished()
+    assert test_world.total_delay() == 9
 
 
 def test_cap():
@@ -13,6 +14,7 @@ def test_cap():
     schedule = parse_output_file("examples/official/kapazität/output.txt")
     test_world.apply_all(schedule)
     assert test_world.is_finished()
+    assert test_world.total_delay() == 0
 
 
 def test_station_cap():
@@ -20,6 +22,7 @@ def test_station_cap():
     schedule = parse_output_file("examples/official/stationCapacity/output.txt")
     test_world.apply_all(schedule)
     assert test_world.is_finished()
+    assert test_world.total_delay() == 50
 
 
 def test_line_forth_back():
@@ -27,6 +30,7 @@ def test_line_forth_back():
     schedule = parse_output_file("examples/official/testLineForthBack/output.txt")
     test_world.apply_all(schedule)
     assert test_world.is_finished()
+    assert test_world.total_delay() == 0
 
 
 def test_unused_wildcard_train():
@@ -34,3 +38,4 @@ def test_unused_wildcard_train():
     schedule = parse_output_file("examples/official/unusedWildcardTrain/output.txt")
     test_world.apply_all(schedule)
     assert test_world.is_finished()
+    assert test_world.total_delay() == 4860

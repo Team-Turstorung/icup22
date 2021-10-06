@@ -105,7 +105,8 @@ class PassengerGroup:
 
     def is_valid(self) -> bool:
         if self.position_type not in [
-            PassengerGroupPositionType.STATION, PassengerGroupPositionType.TRAIN, PassengerGroupPositionType.DESTINATION_REACHED]:
+            PassengerGroupPositionType.STATION, PassengerGroupPositionType.TRAIN,
+            PassengerGroupPositionType.DESTINATION_REACHED]:
             return False
         if self.position_type == PassengerGroupPositionType.STATION and not isinstance(
             self.position, Station):
@@ -120,6 +121,11 @@ class PassengerGroup:
         if not isinstance(self.destination, Station):
             return False
         return True
+
+    def delay(self) -> int:
+        if self.time_remaining >= 0:
+            return 0
+        return -self.time_remaining * self.group_size
 
     def is_destination_reached(self) -> bool:
         return self.position_type == PassengerGroupPositionType.DESTINATION_REACHED
@@ -187,7 +193,7 @@ class GameState:
     def apply_all(self, schedule: 'Schedule'):
         num_rounds = max(schedule.actions.keys())
         start_round = 0 if schedule.actions[0].is_zero_round() else 1
-        for i in range(start_round, num_rounds+1):
+        for i in range(start_round, num_rounds + 1):
             self.apply(schedule.actions[i])
             if not self.is_valid():
                 raise Exception("invalid state after round", i)
@@ -283,6 +289,10 @@ class GameState:
         for passenger in self.passenger_groups.values():
             output += f"{passenger.name} {passenger.position.name} {passenger.destination.name} {passenger.group_size} {passenger.time_remaining}\n"
         return output
+
+    def total_delay(self):
+        return sum(
+            [group.delay() for group in self.passenger_groups.values()])
 
 
 @dataclass()
