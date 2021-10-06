@@ -6,7 +6,7 @@ from tools.game import GameState, Station, Line, Train, TrainPositionType, Passe
     Schedule, RoundAction
 
 
-def get_mode(line: str, current_mode: str):
+def get_input_mode(line: str, current_mode: str) -> (str, bool):
     if line == "[stations]":
         return "StationMode", True
     if line == "[lines]":
@@ -31,7 +31,7 @@ def parse_input_text(text: str) -> [GameState, nx.Graph]:
     for line in lines:
         # Remove unnecessary whitespace
         line = line.strip()
-        mode, changed = get_mode(line.lower(), mode)
+        mode, changed = get_input_mode(line.lower(), mode)
         if not (line.startswith('#') or line == '' or changed):
             if mode == "unknown":
                 print("Missing Definiton")
@@ -167,7 +167,7 @@ def parse_output_text(text: str) -> Schedule:
     return sched
 
 
-def make_graph(stations: dict, train_lines: dict):
+def make_graph(stations: dict, train_lines: dict) -> nx.Graph:
     world = nx.Graph()
     for station_id in stations.keys():
         world.add_node(station_id, capacity=stations[station_id]["capacity"])
