@@ -8,14 +8,26 @@ class TrainPositionType(Enum):
     STATION = 0
     LINE = 1
     NOT_STARTED = 2
+
     def __repr__(self):
         return self.name
+
+    def __str__(self):
+        return self.name
+
+
 class PassengerGroupPositionType(Enum):
     STATION = 0
     TRAIN = 1
     DESTINATION_REACHED = 2
+
     def __repr__(self):
         return self.name
+
+    def __str__(self):
+        return self.name
+
+
 @dataclass(order=True, unsafe_hash=True)
 class Train:
     name: str
@@ -29,13 +41,13 @@ class Train:
 
     def is_valid(self, game_state: 'GameState') -> bool:
         if self.position_type not in [
-            TrainPositionType.STATION, TrainPositionType.LINE, TrainPositionType.NOT_STARTED]:
+                TrainPositionType.STATION, TrainPositionType.LINE, TrainPositionType.NOT_STARTED]:
             return False
         if self.position_type == TrainPositionType.STATION and self.position not in game_state.stations:
             return False
         if self.position_type == TrainPositionType.LINE and (
-            self.position not in game_state.lines or self.line_progress is None or self.line_progress < 0 or self.line_progress >=
-            game_state.lines[self.position].length or self.next_station is None):
+                self.position not in game_state.lines or self.line_progress is None or self.line_progress < 0 or self.line_progress >=
+                game_state.lines[self.position].length or self.next_station is None):
             return False
         if self.capacity < 0:
             return False
@@ -43,7 +55,8 @@ class Train:
             return False
         if not isinstance(self.passenger_groups, list):
             return False
-        if any([group not in game_state.passenger_groups for group in self.passenger_groups]):
+        if any(
+                [group not in game_state.passenger_groups for group in self.passenger_groups]):
             return False
         if sum([game_state.passenger_groups[group].group_size for group in self.passenger_groups]
                ) > self.capacity:
@@ -75,7 +88,8 @@ class Station:
             return False
         if not isinstance(self.passenger_groups, list):
             return False
-        if any([group not in game_state.passenger_groups for group in self.passenger_groups]):
+        if any(
+                [group not in game_state.passenger_groups for group in self.passenger_groups]):
             return False
         return True
 
@@ -96,8 +110,8 @@ class PassengerGroup:
 
     def is_valid(self, game_state: 'GameState') -> bool:
         if self.position_type not in [
-            PassengerGroupPositionType.STATION, PassengerGroupPositionType.TRAIN,
-            PassengerGroupPositionType.DESTINATION_REACHED]:
+                PassengerGroupPositionType.STATION, PassengerGroupPositionType.TRAIN,
+                PassengerGroupPositionType.DESTINATION_REACHED]:
             return False
         if self.position_type == PassengerGroupPositionType.STATION and self.position not in game_state.stations:
             return False
@@ -211,7 +225,8 @@ class GameState:
             passenger_group = self.passenger_groups[group_id]
             train = self.trains[passenger_group.position]
             if passenger_group.position_type != PassengerGroupPositionType.TRAIN or train.position_type != TrainPositionType.STATION:
-                raise Exception("passenger group must be in a train that is in a station to detrain")
+                raise Exception(
+                    "passenger group must be in a train that is in a station to detrain")
             station = self.stations[train.position]
 
             train.passenger_groups.remove(passenger_group.name)
@@ -226,7 +241,8 @@ class GameState:
             passenger_group = self.passenger_groups[passenger_group_id]
             train = self.trains[action.passenger_boards[passenger_group_id]]
             if train.position_type != TrainPositionType.STATION or passenger_group.position_type != PassengerGroupPositionType.STATION or passenger_group.position != train.position:
-                raise Exception("passenger group and train must be at the same station to board")
+                raise Exception(
+                    "passenger group and train must be at the same station to board")
             station = self.stations[passenger_group.position]
 
             passenger_group.position_type = PassengerGroupPositionType.TRAIN
@@ -236,7 +252,8 @@ class GameState:
 
         for train in self.trains.values():
             if train.position_type == TrainPositionType.LINE:
-                if train.line_progress + train.speed >= self.lines[train.position].length:
+                if train.line_progress + \
+                        train.speed >= self.lines[train.position].length:
                     train.position_type = TrainPositionType.STATION
                     self.lines[train.position].trains.remove(train.name)
                     train.position = train.next_station
@@ -286,7 +303,7 @@ class RoundAction:
     def is_zero_round(self):
         is_zero_round = len(self.train_starts) != 0
         if is_zero_round and (len(self.train_departs) != 0 or len(
-            self.passenger_boards) != 0 or len(self.passenger_detrains) != 0):
+                self.passenger_boards) != 0 or len(self.passenger_detrains) != 0):
             raise Exception(
                 "invalid round: should be zero round, but more actions")
         return is_zero_round

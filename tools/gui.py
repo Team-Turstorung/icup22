@@ -1,17 +1,22 @@
 import base64
+from copy import deepcopy
+from os import name
 
 import dash
 from dash import html
 from dash import dcc
 from dash import dash_table as dt
 from dash.dependencies import Input, Output, State
+from dash.exceptions import PreventUpdate
+from dash.html.H2 import H2
 import networkx as nx
 from networkx.algorithms.flow.capacityscaling import capacity_scaling
+from networkx.drawing import layout
 import plotly.graph_objects as go
 from dataclasses import asdict
 
 from tools.generator import generate_game_state
-from tools.file_parser import parse_input_text
+from tools.file_parser import parse_input_text, parse_output_text
 from tools.game import GameState, Station, Line, Train, TrainPositionType, PassengerGroup, PassengerGroupPositionType  # pylint: disable=unused-import
 
 
@@ -28,13 +33,15 @@ def get_node_traces(pos: dict, stations: dict,
         textposition="bottom center",
         hoverinfo="text",
     )
-    max_capacity = max( stations.values(), key=lambda station: station['capacity'])
+    max_capacity = max(
+        stations.values(),
+        key=lambda station: station['capacity'])
     max_capacity = max_capacity['capacity']
 
-    sizes=[]
-    colors=[]
-    opacities=[]
-    symbols=[]
+    sizes = []
+    colors = []
+    opacities = []
+    symbols = []
 
     for station in stations.values():
         current_trains = list(
@@ -53,13 +60,13 @@ def get_node_traces(pos: dict, stations: dict,
             hovertext = "Trains: 0"
             color = "green"
             symbol = "circle-open"
-        elif len(current_trains) == station['capacity']:
+        elif len(current_trains) == int(station['capacity']):
             hovertext = f"Trains: {len(current_trains)}"
-            symbol="circle"
+            symbol = "circle"
             color = "red"
         else:
             hovertext = f"Trains: {len(current_trains)}"
-            symbol="circle"
+            symbol = "circle"
             color = "blue"
 
         hovertext += f"/{station['capacity']}"
@@ -70,7 +77,7 @@ def get_node_traces(pos: dict, stations: dict,
         else:
             passenger_count = 0
             for passenger_group in current_passenger_groups:
-                passenger_count += passenger_group['group_size']
+                passenger_count += int(passenger_group['group_size'])
             hovertext += f"<br>Passengers: {len(current_passenger_groups)}/{passenger_count}"
             symbol = "diamond"
             opacity = 1
@@ -81,12 +88,12 @@ def get_node_traces(pos: dict, stations: dict,
         node_trace['x'] += tuple([x])
         node_trace['y'] += tuple([y])
         node_trace['text'] += tuple([station['name']])
-        colors+=  [color]
+        colors += [color]
         sizes += [station['capacity']]
         symbols += [symbol]
         opacities += [opacity]
     node_trace['marker'] = {
-        "color": colors, "size": sizes, "symbol": symbols, "opacity": opacities, "sizemode": 'area', "sizeref": 2.*max_capacity/(20.**2), "sizemin": 5}
+        "color": colors, "size": sizes, "symbol": symbols, "opacity": opacities, "sizemode": 'area', "sizeref": 2. * max_capacity / (20.**2), "sizemin": 5}
     trace_list.append(node_trace)
     return trace_list
 
@@ -120,10 +127,10 @@ def get_edge_traces(pos: dict, lines: dict,
                 passenger_groups.values()
             )
         )
-        start_point = pos[line['start']] 
+        start_point = pos[line['start']]
         x_0 = start_point[0]
         y_0 = start_point[1]
-        end_point = pos[line['end']] 
+        end_point = pos[line['end']]
         x_1 = end_point[0]
         y_1 = end_point[1]
         trace = go.Scatter(x=tuple([x_0, x_1, None]), y=tuple([y_0, y_1, None]),
@@ -144,19 +151,19 @@ def get_edge_traces(pos: dict, lines: dict,
 
 
 def filter_trains_in_station(x):
-    return x[1]['position_type'] == TrainPositionType.STATION
+    return x[1]['position_type'] == str(TrainPositionType.STATION)
 
 
 def filter_trains_on_line(x):
-    return x[1]['position_type'] == TrainPositionType.LINE
+    return x[1]['position_type'] == str(TrainPositionType.LINE)
 
 
 def filter_passenger_groups_in_station(x):
-    return x[1]['position_type'] == PassengerGroupPositionType.STATION
+    return x[1]['position_type'] == str(PassengerGroupPositionType.STATION)
 
 
 def filter_passenger_groups_on_line(x):
-    return x[1]['position_type'] == PassengerGroupPositionType.TRAIN
+    return x[1]['position_type'] == str(PassengerGroupPositionType.TRAIN)
 
 
 def make_plotly_map_from_game_state(game_state_dict: dict, pos: dict):
@@ -181,8 +188,8 @@ app = dash.Dash(__name__)
 app.layout = html.Div(
     children=[
         # Define Storages
-        dcc.Store(id='storeGraph', storage_type='session'),
-        dcc.Store(id='storeGameState', storage_type='session'),
+        dcc.Store(id='store_current_game_state', storage_type='session'),
+        dcc.Store(id='store_game_states', storage_type='session'),
         # Title div
         html.Div([html.H1("Abfahrt! GUI")],
                  className="row",
@@ -193,7 +200,7 @@ app.layout = html.Div(
             html.Button("Generate", id='generateButton'),
             html.H2("Upload input file"),
             dcc.Upload(
-                id='upload-data',
+                id='upload-input',
                 children=html.Div([
                     'Drag and Drop or ',
                     html.A('Select Files')
@@ -210,12 +217,26 @@ app.layout = html.Div(
                 },
                 accept="text/plain",
             ),
-            html.H2("Resize Graph"),
-            html.Div(children=[
-                html.Button("Bigger", id='bigger_button'),
-                html.Button("Smaller", id='smaller_button')
-            ]),
-
+            html.H2("Upload output File"),
+            dcc.Upload(
+                id='upload-output',
+                children=html.Div([
+                    'Drag and Drop or ',
+                    html.A('Select Files')
+                ]),
+                style={
+                    'width': '100%',
+                    'height': '60px',
+                    'lineHeight': '60px',
+                    'borderWidth': '1px',
+                    'borderStyle': 'dashed',
+                    'borderRadius': '5px',
+                    'textAlign': 'center',
+                    'margin': '10px auto'
+                },
+                accept="text/plain",
+            ),
+            dcc.Dropdown(id="round_dropdown")
         ]),
         # Row with visualization
         html.Div(className="row", children=[
@@ -240,7 +261,24 @@ app.layout = html.Div(
                 html.H2("Visualization", style={"text-align": "center"}),
                 dcc.Graph(
                     id='map',
-                ),
+                    figure={"layout": go.Layout(
+                        title='Map full of stations and train lines',
+                        showlegend=False,
+                        hovermode='closest',
+                        margin={
+                            'b': 40,
+                            'l': 40,
+                            'r': 40,
+                            't': 40},
+                        xaxis={
+                            'showgrid': False,
+                            'zeroline': False,
+                            'showticklabels': False},
+                        yaxis={
+                            'showgrid': False,
+                            'zeroline': False,
+                            'showticklabels': False},
+                        height=1000)}),
             ]),
             # Third Column with information about passengers and trains of
             # station
@@ -271,75 +309,112 @@ def get_positions_from_graph(graph: nx.Graph):
     pos = nx.kamada_kawai_layout(graph)
     new_pos = {name: tuple(arr) for name, arr in pos.items()}
     return new_pos
-    
-@ app.callback([Output('map', 'figure'), Output('storeGraph', 'data')],
-               [Input('upload-data', 'contents'),
-                Input('generateButton', 'n_clicks'),
-                Input('smaller_button', 'n_clicks'),
-                Input('bigger_button', 'n_clicks'),
-                Input('map', 'figure')],
-               [State('storeGraph', 'data'), State('storeGameState', 'data')])
-def update_output(contents, _, __, ___, figure: go.Figure, traces, game_state):
-    ctx = dash.callback_context
-    if ctx.triggered[0]['prop_id'] == 'upload-data.contents':
-        _, content_string = contents.split(',')
 
+
+def make_dict_serializable(game_state_dict: dict):
+    serializable_game_state_dict = {}
+    trains = {}
+    for train in game_state_dict['trains'].values():
+        train['position_type'] = str(train['position_type'])
+        trains[train['name']] = train
+    passenger_groups = {}
+    for passenger_group in game_state_dict['passenger_groups'].values():
+        passenger_group['position_type'] = str(
+            passenger_group['position_type'])
+        passenger_groups[passenger_group['name']] = passenger_group
+    serializable_game_state_dict['trains'] = trains
+    serializable_game_state_dict['passenger_groups'] = passenger_groups
+    serializable_game_state_dict['stations'] = game_state_dict['stations']
+    serializable_game_state_dict['lines'] = game_state_dict['lines']
+    return serializable_game_state_dict
+
+
+@ app.callback([Output('store_game_states', 'data')],
+               [Input('upload-input', 'contents'),
+                Input('upload-output', 'contents'),
+                Input('generateButton', 'n_clicks'), ])
+def update_output(contents, output_content, _,):
+    ctx = dash.callback_context
+    if ctx.triggered[0]['prop_id'] == 'upload-input.contents':
+        _, content_string = contents.split(',')
         decoded = base64.b64decode(content_string)
         decoded = decoded.decode('utf-8')
         game_state, graph = parse_input_text(decoded)
         pos = get_positions_from_graph(graph)
         game_state_dict = asdict(game_state)
-        plot_traces = make_plotly_map_from_game_state(game_state_dict, pos)
-    elif ctx.triggered[0]['prop_id'] == 'generateButton.n_clicks':
-        game_state, graph = generate_game_state(
-            num_stations=200, num_trains=70, num_passengers=60, max_station_capacity=150)
-        game_state_dict = asdict(game_state)
-        pos = get_positions_from_graph(graph)
-        plot_traces = make_plotly_map_from_game_state(game_state_dict, pos)
-    elif 'button' in ctx.triggered[0]['prop_id']:
-        new_traces = []
-        if 'bigger' in ctx.triggered[0]['prop_id']:
-            for trace in traces:
-                if 'marker' in trace:
-                    trace['marker']['size'] = trace['marker']['size'] + 2
-                else:
-                    trace['line']['width'] = trace['line']['width'] + 1
-                new_scatter = go.Scatter(trace)
-                new_traces.append(new_scatter)
-        else:
-            for trace in traces:
-                if 'marker' in trace:
-                    trace['marker']['size'] = trace['marker']['size'] - 2
-                else:
-                    trace['line']['width'] = trace['line']['width'] - 1
-                new_scatter = go.Scatter(trace)
-                new_traces.append(new_scatter)
-        figure = go.Figure(data=new_traces, layout=go.Layout(
-            title='Map full of stations and train lines',
-            showlegend=False,
-            hovermode='closest',
-            margin={
-                'b': 40,
-                'l': 40,
-                'r': 40,
-                't': 40},
-            xaxis={
-                'showgrid': False,
-                'zeroline': False,
-                'showticklabels': False},
-            yaxis={
-                'showgrid': False,
-                'zeroline': False,
-                'showticklabels': False},
-            height=1000)
+        game_state_dict = make_dict_serializable(game_state_dict)
+        return [{"positions": pos, "game_states": {0: game_state_dict}}]
 
-        )
-        return figure, traces
-    else:
-        game_state = game_state or {}
-        plot_traces = traces
+    elif ctx.triggered[0]['prop_id'] == 'upload-output.contents' and contents is not None:
+        _, content_string = contents.split(',')
+        decoded = base64.b64decode(content_string)
+        decoded = decoded.decode('utf-8')
+        _, output_content_string = output_content.split(',')
+        decoded_output = base64.b64decode(output_content_string)
+        decoded_output = decoded_output.decode('utf-8')
+        game_state, graph = parse_input_text(decoded)
+        pos = get_positions_from_graph(graph=graph)
+        schedule = parse_output_text(decoded_output)
+        num_rounds = max(schedule.actions.keys())
+        start_round = 0 if schedule.actions[0].is_zero_round() else 1
+        game_state_dicts = {}
+        for i in range(start_round, num_rounds + 1):
+            action = schedule.actions[i]
+            new_game_state = deepcopy(game_state)
+            new_game_state.apply(action)
+            game_state_dicts[i] = make_dict_serializable(asdict(game_state))
+            game_state = new_game_state
 
-    return {
+        return [{"positions": pos, "game_states": game_state_dicts}]
+    raise PreventUpdate
+
+
+@ app.callback([Output('round_dropdown', "options")],
+               [Input('store_game_states', 'data')])
+def select_round(all_game_states):
+    if all_game_states is None:
+        raise PreventUpdate
+    game_states = all_game_states['game_states']
+    options = []
+    for i in game_states.keys():
+        options.append({"label": f"Round {i}", "value": i})
+    return [options]
+
+
+@ app.callback(Output('store_current_game_state', 'data'),
+               Input('round_dropdown', 'value'), State('store_game_states', 'data'))
+def update_current_game_state(index, all_game_states):
+    if index == '' or index is None or all_game_states is None or all_game_states == {}:
+        raise PreventUpdate
+    return {"positions": all_game_states["positions"],
+            "game_state": all_game_states['game_states'][index] or {}}
+
+
+@ app.callback([Output('table_trains', 'filter_query'), Output('table_passengers', 'filter_query')],
+               Input('map', 'clickData'))
+def update_query(hover_data):
+    query = ""
+    if hover_data is not None:
+        query = '{position} = ' + hover_data['points'][0]['text']
+    return query, query
+
+
+@ app.callback([Output('table_trains', 'data'), Output('table_passengers', 'data'), Output('map', 'figure')],
+               Input('store_current_game_state', 'data'))
+def initialize_tables(game_information):
+    if game_information == [{}] or game_information is None:
+        raise PreventUpdate
+    game_state = game_information['game_state']
+    positions = game_information['positions']
+    plot_traces = make_plotly_map_from_game_state(game_state, positions)
+    sorted_stations = []
+    sorted_trains = []
+    if game_state is not None:
+        trains = game_state['trains'].values()
+        stations = game_state['passenger_groups'].values()
+        sorted_trains = sorted(trains, key=lambda train: train['name'])
+        sorted_stations = sorted(stations, key=lambda station: station['name'])
+    return sorted_trains, sorted_stations, {
         "data": plot_traces,
         "layout": go.Layout(
             title='Map full of stations and train lines',
@@ -358,29 +433,7 @@ def update_output(contents, _, __, ___, figure: go.Figure, traces, game_state):
                 'showgrid': False,
                 'zeroline': False,
                 'showticklabels': False},
-            height=1000)}, plot_traces
-
-
-@ app.callback([Output('table_trains', 'filter_query'), Output('table_passengers', 'filter_query')],
-               Input('map', 'clickData'))
-def update_query(hover_data):
-    query = ""
-    if hover_data is not None:
-        query = '{position} = ' + hover_data['points'][0]['text']
-    return query, query
-
-
-@ app.callback([Output('table_trains', 'data'), Output('table_passengers', 'data')],
-               Input('storeGameState', 'data'))
-def initialize_tables(game_state):
-    sorted_stations = []
-    sorted_trains = []
-    #if game_state is not None:
-        #trains = game_state['trains'].values()
-        #stations = game_state['passenger_groups'].values()
-        #sorted_trains = sorted(trains, key=lambda train: train['name'])
-        #sorted_stations = sorted(stations, key=lambda station: station['name'])
-    return sorted_trains, sorted_stations
+            height=1000)}
 
 
 # Start App
