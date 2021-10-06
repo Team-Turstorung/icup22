@@ -259,7 +259,7 @@ class GameState:
         output = ""
         output += "[Stations]\n"
         for station in self.stations.values():
-            output += f"{station.name} schedules{station.capacity}\n"
+            output += f"{station.name} {station.capacity}\n"
         output += "\n[Lines]\n"
         for line in self.lines.values():
             output += f"{line.name} {line.start} {line.end} {line.length} {line.capacity}\n"

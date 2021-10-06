@@ -109,8 +109,8 @@ def generate_game_state(**kwargs) -> tuple[GameState, nx.Graph]:
         graph.edges[edge]['weight'] = length
         name = graph.edges[edge]['name']
         capacity = random.randint(min_line_capacity, max_line_capacity)
-        lines[name] = Line(name=name, length=length, start=stations[edge[0]],
-                           end=stations[edge[1]], capacity=capacity, trains=[])
+        lines[name] = Line(name=name, length=length, start=edge[0],
+                           end=edge[1], capacity=capacity, trains=[])
 
     for i in range(num_trains):
         train_capacity = random.randint(
@@ -125,12 +125,13 @@ def generate_game_state(**kwargs) -> tuple[GameState, nx.Graph]:
         if start != '*':
             trains[name] = Train(
                 name=name,
-                position=stations[start],
+                position=start,
                 position_type=TrainPositionType.STATION,
                 speed=speed,
                 capacity=train_capacity,
-                passenger_groups=[])
-            stations[start].trains.append(trains[name])
+                passenger_groups=[],
+                next_station=None)
+            stations[start].trains.append(name)
         else:
             trains[name] = Train(
                 name=name,
@@ -138,12 +139,13 @@ def generate_game_state(**kwargs) -> tuple[GameState, nx.Graph]:
                 position_type=TrainPositionType.NOT_STARTED,
                 speed=speed,
                 capacity=train_capacity,
-                passenger_groups=[])
+                passenger_groups=[],
+                next_station=None)
     passengers = {}
     for i in range(num_passengers):
         name = 'P' + str(i + 1)
-        start = stations[random.choice(tuple(graph.nodes))]
-        destination = stations[random.choice(tuple(graph.nodes))]
+        start = random.choice(tuple(graph.nodes))
+        destination = random.choice(tuple(graph.nodes))
         size = random.randint(
             min_group_size, max_group_size)
         time = random.randint(min_time, max_time)
