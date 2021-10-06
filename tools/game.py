@@ -31,11 +31,10 @@ class Train:
         if self.position_type not in [
             TrainPositionType.STATION, TrainPositionType.LINE, TrainPositionType.NOT_STARTED]:
             return False
-        if self.position_type == TrainPositionType.STATION and (
-            (not isinstance(self.position, Station)) or self.position is None):
+        if self.position_type == TrainPositionType.STATION and not isinstance(self.position, Station):
             return False
         if self.position_type == TrainPositionType.LINE and (
-            (not isinstance(self.position, Line)) or self.position is None or self.line_progress is None or self.line_progress < 0 or self.line_progress >= self.position.length or self.next_station is None):
+            not isinstance(self.position, Line) or self.line_progress is None or self.line_progress < 0 or self.line_progress >= self.position.length or self.next_station is None):
             return False
         if self.capacity < 0:
             return False
@@ -81,6 +80,8 @@ class Station:
             return False
         if any([not isinstance(train, Train) for train in self.trains]):
             return False
+        if not isinstance(self.passenger_groups, list):
+            return False
         if any([not isinstance(group, PassengerGroup)
                 for group in self.passenger_groups]):
             return False
@@ -111,6 +112,10 @@ class PassengerGroup:
         if self.position_type == PassengerGroupPositionType.TRAIN and not isinstance(
             self.position, Train):
             return False
+        if self.group_size <= 0:
+            return False
+        if not isinstance(self.destination, Station):
+            return False
         return True
 
     def is_destination_reached(self) -> bool:
@@ -137,13 +142,15 @@ class Line:
     capacity: int
     trains: list['Train'] = field(default_factory=list)
 
-    def is_valid(self):
+    def is_valid(self) -> bool:
         if self.length <= 0:
             return False
         if not isinstance(self.start, Station) or not isinstance(
             self.end, Station):
             return False
         if self.capacity < 0:
+            return False
+        if not isinstance(self.trains, list):
             return False
         if any([not isinstance(train, Train) for train in self.trains]):
             return False
@@ -164,7 +171,7 @@ class GameState:
         self.stations = stations
         self.lines = lines
 
-    def is_valid(self):
+    def is_valid(self) -> bool:
         return all([train.is_valid() for train in self.trains.values()]) and all(
             [station.is_valid() for station in self.stations.values()]) and all(
             [line.is_valid for line in self.lines.values()]) and all(
