@@ -136,11 +136,11 @@ class TestSimpleOutput(TestCase):
         self.schedule = parse_output_file('examples/official/simple/output.txt')
 
     def test_length(self):
-        self.assertEqual(max(self.schedule.actions.keys()), 7)
+        self.assertEqual(max(self.schedule.actions.keys()), 6)
 
     def test_train_departs(self):
         for i in range(8):
-            self.assertDictEqual(self.schedule.actions[i].train_departs, {'T1': 'L1', 'T2': 'L2'} if i == 2 else {})
+            self.assertDictEqual(self.schedule.actions[i].train_departs, {'T1': 'L2', 'T2': 'L1'} if i == 2 else {})
 
     def test_train_starts(self):
         for i in range(8):
@@ -149,12 +149,12 @@ class TestSimpleOutput(TestCase):
     def test_passenger_detrains(self):
         for i in range(8):
             detrains = []
-            if i == 3:
+            if i == 6:
                 detrains = ['P1']
-            elif i == 7:
+            elif i == 3:
                 detrains = ['P2']
             self.assertListEqual(self.schedule.actions[i].passenger_detrains, detrains)
 
     def test_passenger_boards(self):
         for i in range(8):
-            self.assertDictEqual(self.schedule.actions[i].passenger_boards, {'P1': 'T1', 'P2': 'T2'} if i == 1 else {})
+            self.assertDictEqual(self.schedule.actions[i].passenger_boards, {'P1': 'T2', 'P2': 'T1'} if i == 1 else {})
