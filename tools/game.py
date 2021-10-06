@@ -8,14 +8,14 @@ class TrainPositionType(Enum):
     STATION = 0
     LINE = 1
     NOT_STARTED = 2
-
-
+    def __repr__(self):
+        return self.name
 class PassengerGroupPositionType(Enum):
     STATION = 0
     TRAIN = 1
     DESTINATION_REACHED = 2
-
-
+    def __repr__(self):
+        return self.name
 @dataclass(order=True, unsafe_hash=True)
 class Train:
     name: str
