@@ -52,8 +52,8 @@ def parse_input_text(text: str) -> [GameState, nx.Graph]:
 
                 line_name = line_list[0]
                 length = float(line_list[3])
-                start = stations[line_list[1]]
-                end = stations[line_list[2]]
+                start = line_list[1]
+                end = line_list[2]
                 capacity = int(line_list[4])
                 train_lines[line_name] = Line(
                     name=line_name,
@@ -72,17 +72,16 @@ def parse_input_text(text: str) -> [GameState, nx.Graph]:
                 if len(line_list) != 4:
                     print("Invalid Train")
                 train_name = line_list[0]
-                position = stations[line_list[1]
-                                    ] if line_list[1] != '*' else None
+                position = line_list[1]
                 train_capacity = int(line_list[3])
                 speed = float(line_list[2])
-                if position is None:
+                if position == '*':
                     trains[train_name] = Train(
                         name=train_name,
                         position_type=TrainPositionType.NOT_STARTED,
                         speed=speed,
                         capacity=train_capacity,
-                        position=position,
+                        position=None,
                         line_progress=0,
                         next_station=None,
                         passenger_groups=[])
@@ -96,22 +95,21 @@ def parse_input_text(text: str) -> [GameState, nx.Graph]:
                         line_progress=0,
                         next_station=None,
                         passenger_groups=[])
-                    stations[position.name].trains.append(trains[train_name])
+                    stations[position].trains.append(train_name)
             elif mode == "PassengerMode":
                 line_list = line.split()
                 if len(line_list) != 5:
                     print("Invalid Passenger")
                 passenger_group_name = line_list[0]
-                position = stations[line_list[1]]
-                destination = stations[line_list[2]]
+                position = line_list[1]
+                destination = line_list[2]
                 position_type = PassengerGroupPositionType.STATION
                 group_size = int(line_list[3])
                 time_remaining = int(line_list[4])
                 passenger_groups[passenger_group_name] = PassengerGroup(name=passenger_group_name, position=position,
                                                                         position_type=position_type, group_size=group_size,
                                                                         destination=destination, time_remaining=time_remaining)
-                stations[position.name].passenger_groups.append(
-                    passenger_groups[passenger_group_name])
+                stations[position].passenger_groups.append(passenger_group_name)
 
     game_state = GameState(
         trains,
