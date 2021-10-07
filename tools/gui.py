@@ -1,6 +1,6 @@
 import base64
 from copy import deepcopy
-from os import name
+from dataclasses import asdict
 
 import dash
 from dash import html
@@ -8,12 +8,8 @@ from dash import dcc
 from dash import dash_table as dt
 from dash.dependencies import Input, Output, State
 from dash.exceptions import PreventUpdate
-from dash.html.H2 import H2
 import networkx as nx
-from networkx.algorithms.flow.capacityscaling import capacity_scaling
-from networkx.drawing import layout
 import plotly.graph_objects as go
-from dataclasses import asdict
 
 from tools.generator import generate_game_state
 from tools.file_parser import parse_input_text, parse_output_text
@@ -197,7 +193,7 @@ app.layout = html.Div(
         # Input section
         html.Div(className="row", children=[
             html.H2("Generate new Map"),
-            html.Button("Generate", id='generateButton'),
+            html.Button("Generate", id='generate_button'),
             html.H2("Upload input file"),
             dcc.Upload(
                 id='upload-input',
@@ -236,7 +232,10 @@ app.layout = html.Div(
                 },
                 accept="text/plain",
             ),
-            dcc.Dropdown(id="round_dropdown")
+            dcc.Dropdown(
+                id="round_dropdown",
+                searchable=False,
+                placeholder="Select Round")
         ]),
         # Row with visualization
         html.Div(className="row", children=[
@@ -332,7 +331,7 @@ def make_dict_serializable(game_state_dict: dict):
 @ app.callback([Output('store_game_states', 'data')],
                [Input('upload-input', 'contents'),
                 Input('upload-output', 'contents'),
-                Input('generateButton', 'n_clicks'), ])
+                Input('generate_button', 'n_clicks'), ])
 def update_output(contents, output_content, _,):
     ctx = dash.callback_context
     if ctx.triggered[0]['prop_id'] == 'upload-input.contents':
@@ -366,6 +365,12 @@ def update_output(contents, output_content, _,):
             game_state = new_game_state
 
         return [{"positions": pos, "game_states": game_state_dicts}]
+    elif ctx.triggered[0]['prop_id'] == 'generate_button.n_clicks':
+        game_state, graph = generate_game_state(num_stations=100,
+                                                num_trains=10, num_passengers=10)
+        pos = get_positions_from_graph(graph)
+        return [{"positions": pos, "game_states": {
+            0: make_dict_serializable(asdict(game_state))}}]
     raise PreventUpdate
 
 
