@@ -78,9 +78,12 @@ def get_node_traces(pos: dict, stations: dict,
             symbol = "diamond"
             opacity = 1
 
+        custom_data = {
+            "type": "station",
+            "name": station['name'],
+            "trains": current_trains}
         node_trace['hovertext'] += tuple([hovertext])
-        node_trace['customdata'] += tuple(
-            [{"trains": [train['name'] for train in current_trains], "passengers": [passenger_group['name'] for passenger_group in current_passenger_groups], "name": station['name']}])
+        node_trace['customdata'] += tuple([custom_data])
         node_trace['x'] += tuple([x])
         node_trace['y'] += tuple([y])
         node_trace['text'] += tuple([station['name']])
@@ -112,17 +115,23 @@ def get_edge_traces(pos: dict, lines: dict,
         opacity=1)
     for line in lines.values():
         name = line['name']
-        dummy_current_trains = list(
+        current_trains = list(
             filter(
                 lambda x,
                 id=name: x['position'] == id,
                 trains.values()))
-        dummy_current_passenger_groups = list(
+        current_passenger_groups = list(
             filter(
-                lambda x, id=name: x['position'] == id,
+                lambda x: x['position'] in current_trains,
                 passenger_groups.values()
             )
         )
+        if len(current_trains) == 0:
+            color = "LightGreen"
+        elif len(current_trains) == line['capacity']:
+            color = "red"
+        else:
+            color = "yellow"
         start_point = pos[line['start']]
         x_0 = start_point[0]
         y_0 = start_point[1]
@@ -133,13 +142,15 @@ def get_edge_traces(pos: dict, lines: dict,
                            mode='lines',
                            line={
             'width': line['capacity'] * 3,
-            "color": "LightBlue"},
+            "color": color},
             opacity=1)
 
-        text = name
+        text = f"{name} <br> Capacity: {len(current_trains)}/{line['capacity']}"
+        custom_data = {"type": "line", "name": name, "trains": current_trains}
         middle_hover_trace['text'] += tuple([text])
         middle_hover_trace['x'] += tuple([(x_0 + x_1) / 2])
         middle_hover_trace['y'] += tuple([(y_0 + y_1) / 2])
+        middle_hover_trace['customdata'] += tuple([custom_data])
         trace_list.append(trace)
 
     trace_list.append(middle_hover_trace)
@@ -400,7 +411,18 @@ def update_current_game_state(index, all_game_states):
 def update_query(hover_data):
     query = ""
     if hover_data is not None:
-        query = '{position} = ' + hover_data['points'][0]['text']
+        data = hover_data['points'][0]['customdata']
+
+        query_list = []
+        query_list.append('{position} = ' + data['name'])
+        for train in data['trains']:
+            query_list.append("{position} = " +
+                              train['name'])
+
+        query = " || ".join(query_list)
+
+    if query == "":
+        raise PreventUpdate
     return query, query
 
 
