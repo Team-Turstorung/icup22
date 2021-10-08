@@ -241,10 +241,23 @@ app.layout = html.Div(
                 },
                 accept="text/plain",
             ),
-            dcc.Dropdown(
-                id="round_dropdown",
-                searchable=False,
-                placeholder="Select Round")
+            html.Div(
+                children=[
+                    dcc.Dropdown(
+                        id="round_dropdown",
+                        searchable=False,
+                        placeholder="Select Round"),
+                    html.Button(
+                        id="round_decrement",
+                        children=["Previous Round"],
+                        n_clicks=0),
+                    html.Button(
+                        id="round_increment",
+                        children=["Next Round"],
+                        n_clicks=0
+                    ),
+                ]
+            )
         ]),
         # Row with visualization
         html.Div(className="row", children=[
@@ -396,16 +409,37 @@ def update_output(contents, output_content, _,):
     raise PreventUpdate
 
 
-@ app.callback([Output('round_dropdown', "options"), Output('round_dropdown', "value")],
-               [Input('store_game_states', 'data')])
-def select_round(all_game_states):
+@app.callback(Output('round_dropdown', 'value'), [Input('store_game_states', 'data'), Input('round_dropdown', 'value'),
+                                                  Input('round_increment', 'n_clicks'),
+                                                  Input('round_decrement', 'n_clicks')])
+def select_round(all_game_states, old_index, n_clicks, n_clicks_2): # pylint: disable=unused-argument
+    ctx = dash.callback_context
+    trigger_id = ctx.triggered[0]["prop_id"].split(".")[0]
+    index = ''
+    if trigger_id == 'round_increment':
+        if not old_index:
+            raise PreventUpdate
+        index = str(int(old_index)+1)
+    elif trigger_id == 'round_decrement':
+        if not old_index:
+            raise PreventUpdate
+        index = str(int(old_index)-1)
+    elif len(all_game_states['game_states']) != 0:
+        index = '0'
+    if index != '' and index not in all_game_states['game_states']:
+        raise PreventUpdate
+    return index
+
+
+@ app.callback(Output('round_dropdown', "options"), Input('store_game_states', 'data'))
+def set_options(all_game_states):
     if all_game_states is None:
         raise PreventUpdate
     game_states = all_game_states['game_states']
     options = []
     for i in game_states.keys():
         options.append({"label": f"Round {i}", "value": i})
-    return options, options[0]["value"]
+    return options
 
 
 @ app.callback(Output('store_current_game_state', 'data'),
@@ -418,7 +452,7 @@ def update_current_game_state(index, all_game_states):
 
 
 @ app.callback([Output('table_trains', 'filter_query'), Output('table_passengers', 'filter_query')],
-               Input('map', 'clickData'))
+                Input('map', 'clickData'))
 def update_query(hover_data):
     query = ""
     if hover_data is not None:
