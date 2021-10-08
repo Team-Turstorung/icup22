@@ -197,72 +197,67 @@ app.layout = html.Div(
         dcc.Store(id='store_game_states', storage_type='session'),
         # Title div
         html.Div([html.H1("Abfahrt! GUI")],
-                 className="row",
+                 className="",
                  style={'textAlign': "center"}),
         # Input section
         html.Div(className="row", children=[
-            html.H2("Generate new Map"),
-            html.Button("Generate", id='generate_button'),
-            html.H2("Upload input file"),
-            dcc.Upload(
-                id='upload-input',
-                children=html.Div([
-                    'Drag and Drop or ',
-                    html.A('Select Files')
-                ]),
-                style={
-                    'width': '100%',
-                    'height': '60px',
-                    'lineHeight': '60px',
-                    'borderWidth': '1px',
-                    'borderStyle': 'dashed',
-                    'borderRadius': '5px',
-                    'textAlign': 'center',
-                    'margin': '10px auto'
-                },
-                accept="text/plain",
-            ),
-            html.H2("Upload output File"),
-            dcc.Upload(
-                id='upload-output',
-                children=html.Div([
-                    'Drag and Drop or ',
-                    html.A('Select Files')
-                ]),
-                style={
-                    'width': '100%',
-                    'height': '60px',
-                    'lineHeight': '60px',
-                    'borderWidth': '1px',
-                    'borderStyle': 'dashed',
-                    'borderRadius': '5px',
-                    'textAlign': 'center',
-                    'margin': '10px auto'
-                },
-                accept="text/plain",
-            ),
-            html.Div(
-                children=[
-                    dcc.Dropdown(
-                        id="round_dropdown",
-                        searchable=False,
-                        placeholder="Select Round"),
-                    html.Button(
-                        id="round_decrement",
-                        children=["Previous Round"],
-                        n_clicks=0),
-                    html.Button(
-                        id="round_increment",
-                        children=["Next Round"],
-                        n_clicks=0
-                    ),
-                ]
-            )
+            html.Div(children=[
+                html.H2("Generate new Map"),
+                html.Button("Generate", id='generate_button'),
+            ]),
+            html.Div(children=[
+                html.H2("Upload input file"),
+                dcc.Upload(
+                    id='upload-input',
+                    children=html.Div([
+                        'Drag and Drop or ',
+                        html.A('Select Files')
+                    ]),
+                    style={
+                        'width': '100%',
+                        'height': '60px',
+                        'lineHeight': '60px',
+                        'borderWidth': '1px',
+                        'borderStyle': 'dashed',
+                        'borderRadius': '5px',
+                        'textAlign': 'center',
+                        'margin': '10px auto'
+                    },
+                    accept="text/plain",
+                ),
+                html.H2("Upload output File"),
+                dcc.Upload(
+                    id='upload-output',
+                    children=html.Div([
+                        'Drag and Drop or ',
+                        html.A('Select Files')
+                    ]),
+                    style={
+                        'width': '100%',
+                        'height': '60px',
+                        'lineHeight': '60px',
+                        'borderWidth': '1px',
+                        'borderStyle': 'dashed',
+                        'borderRadius': '5px',
+                        'textAlign': 'center',
+                        'margin': '10px auto'
+                    },
+                    accept="text/plain",
+                ),
+            ]),
         ]),
+        html.Div(
+            children=[
+                dcc.Dropdown(
+                    id="round_dropdown",
+                    searchable=False,
+                    placeholder="Select Round"),
+            ]
+        ),
         # Row with visualization
         html.Div(className="row", children=[
             # First column with information about all passengers and trains
-            html.Div(className="three columns", style={"height": "100vh", "overflow": "scroll", "position": "sticky", "top": "0"}, children=[
+            html.Div(className="data_tables", style={}, children=[
                 html.Div(style={}, children=[
                     html.H2("Trains"),
                     dt.DataTable(id="table_trains", columns=[
@@ -278,8 +273,19 @@ app.layout = html.Div(
                 ]),
             ]),
             # Second column
-            html.Div(className="six columns", children=[
-                html.H2("Visualization", style={"text-align": "center"}),
+            html.Div(className="middle_column", children=[
+                html.Div(className="row", style={"justify-content": "space-between"}, children=[
+                    html.Button(
+                        id="round_decrement",
+                        children=["Previous Round"],
+                        n_clicks=0),
+                    html.H2("Visualization", style={"text-align": "center"}),
+                    html.Button(
+                        id="round_increment",
+                        children=["Next Round"],
+                        n_clicks=0
+                    ),
+                ]),
                 dcc.Graph(
                     id='map',
                     config={
@@ -293,7 +299,8 @@ app.layout = html.Div(
                         "scrollZoom": True,
                         "displaylogo": False,
                         "modeBarButtons": [
-                            ["pan2d", "zoom2d", "toImage"]
+                            ["pan2d", "zoom2d", "zoomIn2d",
+                                "zoomOut2d", "autoScale2d", "toImage"]
                         ]},
                     figure={"layout": go.Layout(
                         title='Map full of stations and train lines',
@@ -316,7 +323,7 @@ app.layout = html.Div(
             ]),
             # Third Column with information about passengers and trains of
             # station
-            html.Div(className="three columns", style={"height": "100vh", "overflow": "scroll", "position": "sticky", "top": "0"}, children=[
+            html.Div(className="data_tables", style={}, children=[
                 html.Div(style={}, children=[
                     html.H2("Passengers"),
                     dt.DataTable(id="table_passengers", columns=[
@@ -402,28 +409,32 @@ def update_output(contents, output_content, _,):
         return [{"positions": pos, "game_states": game_state_dicts}]
     elif ctx.triggered[0]['prop_id'] == 'generate_button.n_clicks':
         game_state, graph = generate_game_state(num_stations=100,
-                                                num_trains=10, num_passengers=10)
+                                                num_trains=100, num_passengers=100)
         pos = get_positions_from_graph(graph)
         return [{"positions": pos, "game_states": {
             0: make_dict_serializable(asdict(game_state))}}]
     raise PreventUpdate
 
 
-@app.callback(Output('round_dropdown', 'value'), [Input('store_game_states', 'data'), Input('round_dropdown', 'value'),
-                                                  Input('round_increment', 'n_clicks'),
-                                                  Input('round_decrement', 'n_clicks')])
-def select_round(all_game_states, old_index, n_clicks, n_clicks_2): # pylint: disable=unused-argument
+@app.callback(Output('round_dropdown', 'value'),
+              [Input('store_game_states', 'data'),
+               Input('round_dropdown', 'value'),
+               Input('round_increment', 'n_clicks'),
+               Input('round_decrement', 'n_clicks')])
+def select_round(all_game_states, old_index, n_clicks, n_clicks_2):  # pylint: disable=unused-argument
+    if all_game_states is None:
+        raise PreventUpdate
     ctx = dash.callback_context
     trigger_id = ctx.triggered[0]["prop_id"].split(".")[0]
     index = ''
     if trigger_id == 'round_increment':
         if not old_index:
             raise PreventUpdate
-        index = str(int(old_index)+1)
+        index = str(int(old_index) + 1)
     elif trigger_id == 'round_decrement':
         if not old_index:
             raise PreventUpdate
-        index = str(int(old_index)-1)
+        index = str(int(old_index) - 1)
     elif len(all_game_states['game_states']) != 0:
         index = '0'
     if index != '' and index not in all_game_states['game_states']:
@@ -431,7 +442,8 @@ def select_round(all_game_states, old_index, n_clicks, n_clicks_2): # pylint: di
     return index
 
 
-@ app.callback(Output('round_dropdown', "options"), Input('store_game_states', 'data'))
+@ app.callback(Output('round_dropdown', "options"),
+               Input('store_game_states', 'data'))
 def set_options(all_game_states):
     if all_game_states is None:
         raise PreventUpdate
@@ -452,7 +464,7 @@ def update_current_game_state(index, all_game_states):
 
 
 @ app.callback([Output('table_trains', 'filter_query'), Output('table_passengers', 'filter_query')],
-                Input('map', 'clickData'))
+               Input('map', 'clickData'))
 def update_query(hover_data):
     query = ""
     if hover_data is not None:
@@ -491,6 +503,7 @@ def initialize_tables(game_information):
         "layout": go.Layout(
             title='Map full of stations and train lines',
             showlegend=False,
+            autosize=True,
             hovermode='closest',
             margin={
                 'b': 40,
@@ -505,7 +518,7 @@ def initialize_tables(game_information):
                 'showgrid': False,
                 'zeroline': False,
                 'showticklabels': False},
-            height=1000)}
+        )}
 
 
 # Start App
