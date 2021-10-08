@@ -98,7 +98,7 @@ def get_node_traces(pos: dict, stations: dict,
 
 
 def get_edge_traces(pos: dict, lines: dict,
-                    trains: dict, passenger_groups: dict):
+                    trains: dict):
     # Traces for lines
     trace_list = []
     # Add point in the middle to make edges hoverable
@@ -120,12 +120,6 @@ def get_edge_traces(pos: dict, lines: dict,
                 lambda x,
                 id=name: x['position'] == id,
                 trains.values()))
-        current_passenger_groups = list(
-            filter(
-                lambda x: x['position'] in current_trains,
-                passenger_groups.values()
-            )
-        )
         if len(current_trains) == 0:
             color = "LightGreen"
         elif len(current_trains) == line['capacity']:
@@ -178,9 +172,7 @@ def make_plotly_map_from_game_state(game_state_dict: dict, pos: dict):
     plot_traces += get_edge_traces(pos,
                                    game_state_dict['lines'],
                                    dict(filter(filter_trains_on_line,
-                                               game_state_dict['trains'].items())),
-                                   dict(filter(filter_passenger_groups_on_line,
-                                               game_state_dict['passenger_groups'].items())))
+                                               game_state_dict['trains'].items())))
     plot_traces += get_node_traces(pos,
                                    game_state_dict['stations'],
                                    dict(filter(filter_trains_in_station,
@@ -385,7 +377,7 @@ def update_output(contents, output_content, _,):
     raise PreventUpdate
 
 
-@ app.callback([Output('round_dropdown', "options")],
+@ app.callback([Output('round_dropdown', "options"), Output('round_dropdown', "value")],
                [Input('store_game_states', 'data')])
 def select_round(all_game_states):
     if all_game_states is None:
@@ -394,7 +386,8 @@ def select_round(all_game_states):
     options = []
     for i in game_states.keys():
         options.append({"label": f"Round {i}", "value": i})
-    return [options]
+    index = '0' if len(options) != 0 else ''
+    return options, index
 
 
 @ app.callback(Output('store_current_game_state', 'data'),
