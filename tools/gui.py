@@ -139,7 +139,7 @@ def get_edge_traces(pos: dict, lines: dict,
             "color": color},
             opacity=1)
 
-        text = f"{name} <br> Capacity: {len(current_trains)}/{line['capacity']}"
+        text = f"<b>{name}</b><br>Trains</b>: {len(current_trains)}/{line['capacity']}<br>Length: {line['length']}"
         custom_data = {"type": "line", "name": name, "trains": current_trains}
         middle_hover_trace['text'] += tuple([text])
         middle_hover_trace['x'] += tuple([(x_0 + x_1) / 2])
@@ -183,7 +183,7 @@ def make_plotly_map_from_game_state(game_state_dict: dict, pos: dict):
 
 
 # Define App and layout
-app = dash.Dash(__name__)
+app = dash.Dash(__name__, title="Abfahrt! GUI", update_title="Abfahrt! GUI, updating...")
 app.layout = html.Div(
     children=[
         # Define Storages
