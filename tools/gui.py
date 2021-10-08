@@ -8,6 +8,7 @@ from dash import dcc
 from dash import dash_table as dt
 from dash.dependencies import Input, Output, State
 from dash.exceptions import PreventUpdate
+from dash.html.H2 import H2
 import networkx as nx
 import plotly.graph_objects as go
 
@@ -200,12 +201,12 @@ app.layout = html.Div(
                  className="",
                  style={'textAlign': "center"}),
         # Input section
-        html.Div(className="row", children=[
+        html.Div(id="input_section", className="row", children=[
             html.Div(children=[
                 html.H2("Generate new Map"),
                 html.Button("Generate", id='generate_button'),
             ]),
-            html.Div(children=[
+            html.Div(id="file_inputs", children=[
                 html.H2("Upload input file"),
                 dcc.Upload(
                     id='upload-input',
@@ -245,15 +246,16 @@ app.layout = html.Div(
                     accept="text/plain",
                 ),
             ]),
+            html.Div(
+                children=[
+                    html.H2("Select Round"),
+                    dcc.RadioItems(
+                        id="round_dropdown",
+
+                    ),
+                ]
+            ),
         ]),
-        html.Div(
-            children=[
-                dcc.Dropdown(
-                    id="round_dropdown",
-                    searchable=False,
-                    placeholder="Select Round"),
-            ]
-        ),
         # Row with visualization
         html.Div(className="row", children=[
             # First column with information about all passengers and trains
