@@ -121,11 +121,14 @@ def get_edge_traces(pos: dict, lines: dict,
                 id=name: x['position'] == id,
                 trains.values()))
         if len(current_trains) == 0:
+            line_type = "dot"
             color = "LightGreen"
         elif len(current_trains) == line['capacity']:
             color = "red"
+            line_type = "solid"
         else:
             color = "yellow"
+            line_type = "solid"
         start_point = pos[line['start']]
         x_0 = start_point[0]
         y_0 = start_point[1]
@@ -136,7 +139,7 @@ def get_edge_traces(pos: dict, lines: dict,
                            mode='lines',
                            line={
             'width': line['capacity'] * 3,
-            "color": color},
+            "color": color, "dash": line_type},
             opacity=1)
 
         text = f"<b>{name}</b><br>Trains</b>: {len(current_trains)}/{line['capacity']}<br>Length: {line['length']}"
@@ -183,7 +186,10 @@ def make_plotly_map_from_game_state(game_state_dict: dict, pos: dict):
 
 
 # Define App and layout
-app = dash.Dash(__name__, title="Abfahrt! GUI", update_title="Abfahrt! GUI, updating...")
+app = dash.Dash(
+    __name__,
+    title="Abfahrt! GUI",
+    update_title="Abfahrt! GUI, updating...")
 app.layout = html.Div(
     children=[
         # Define Storages
@@ -263,6 +269,19 @@ app.layout = html.Div(
                 html.H2("Visualization", style={"text-align": "center"}),
                 dcc.Graph(
                     id='map',
+                    config={
+                        'toImageButtonOptions': {
+                            'format': 'svg',
+                            'filename': 'network_graph',
+                            'height': 1920,
+                            'width': 1080,
+                            'scale': 1
+                        },
+                        "scrollZoom": True,
+                        "displaylogo": False,
+                        "modeBarButtons": [
+                            ["pan2d", "zoom2d", "toImage"]
+                        ]},
                     figure={"layout": go.Layout(
                         title='Map full of stations and train lines',
                         showlegend=False,
@@ -386,8 +405,7 @@ def select_round(all_game_states):
     options = []
     for i in game_states.keys():
         options.append({"label": f"Round {i}", "value": i})
-    index = '0' if len(options) != 0 else ''
-    return options, index
+    return options, options[0]["value"]
 
 
 @ app.callback(Output('store_current_game_state', 'data'),
