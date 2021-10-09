@@ -7,5 +7,6 @@ from abfahrt.types import NetworkState, Schedule
 
 class Solution(ABC):
     @abstractmethod
-    def schedule(self, game_state: NetworkState, graph: nx.Graph) -> Schedule:
+    def schedule(self, network_state: NetworkState,
+                 network_graph: nx.Graph) -> Schedule:
         pass
