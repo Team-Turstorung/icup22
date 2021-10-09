@@ -3,15 +3,13 @@ from copy import deepcopy
 import networkx as nx
 from networkx.algorithms import single_source_shortest_path_length
 
+from abfahrt.solution import Solution
 from tools.file_parser import parse_input_file
-from tools.game import GameState, Schedule, TrainPositionType, RoundAction
+from abfahrt.types import NetworkState, Schedule, TrainPositionType, RoundAction
 
 
-class SimpleSolver:
-    def __init__(self):
-        pass
-
-    def solve(self, game_state: GameState, graph: nx.Graph) -> Schedule:
+class SimpleSolver(Solution):
+    def schedule(self, game_state: NetworkState, graph: nx.Graph) -> Schedule:
         def get_closest_station_with_passengers(train_pos):
             sorted_dict = sorted(single_source_shortest_path_length(graph, train_pos).items(), key=lambda item: item[1])
             for station_id, _ in sorted_dict:
@@ -96,7 +94,7 @@ class SimpleSolver:
 if __name__ == '__main__':
     game_state, graph = parse_input_file('../examples/official/simple/input.txt')
     solver = SimpleSolver()
-    schedule = solver.solve(deepcopy(game_state), graph)
+    schedule = solver.schedule(deepcopy(game_state), graph)
 
     game_state.apply_all(schedule)
     print(f'final game state: {game_state}')
