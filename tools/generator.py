@@ -55,45 +55,20 @@ def random_connected_graph(nodes, density=0):
     return graph
 
 
-def generate_game_state(**kwargs) -> tuple[NetworkState, nx.Graph]:
+def generate_stations_and_lines(**kwargs) -> tuple[NetworkState, nx.Graph]:
     num_stations = kwargs.get('num_stations', random.randint(5, 10))
-    num_trains = kwargs.get('num_trains', random.randint(
-        max(1, math.floor(num_stations * 0.5)), math.ceil(num_stations * 1.2)))
-    num_passengers = kwargs.get(
-        'num_passengers', random.randint(
-            1, math.floor(
-                num_stations * 0.5)))
     density = kwargs.get('density', 0)
-
-    min_line_capacity = kwargs.get('min_line_capacity', 1)
-    max_line_capacity = kwargs.get('max_line_capacity', 5)
-    min_line_length = kwargs.get('min_line_length', 1)
-    max_line_length = kwargs.get('max_line_length', 10)
-    min_train_speed = kwargs.get('min_train_speed', 1)
-    max_train_speed = kwargs.get('max_train_speed', 10)
     min_station_capacity = kwargs.get('min_station_capacity', 1)
     max_station_capacity = kwargs.get('max_station_capacity', 5)
-    min_train_capacity = kwargs.get('min_train_capacity', 1)
-    max_train_capacity = kwargs.get('max_train_capacity', 60)
-    min_group_size = kwargs.get('min_group_size', 1)
-    max_group_size = kwargs.get('min_group_size', 15)
-    min_time = kwargs.get('min_time', 1)
-    max_time = kwargs.get('min_time', 10)
+    min_line_length = kwargs.get('min_line_length', 1)
+    max_line_length = kwargs.get('max_line_length', 10)
+    min_line_capacity = kwargs.get('min_line_capacity', 1)
+    max_line_capacity = kwargs.get('max_line_capacity', 5)
 
-    # some sanity checks
-    if min_train_capacity < max_group_size:
-        print(
-            "WARNING: passenger groups might be too large to be transported by any train")  # TODO: take this into account when assigning train capacities / group sizes?
-    if num_trains > num_stations * min_station_capacity:
-        print(
-            "WARNING: there might be more trains than stations can hold")  # TODO: take this into account when assigning capacities to stations?
+    graph = random_connected_graph(['S' + str(i + 1) for i in range(num_stations)], density)
 
-    # use args to generate the world
-    graph = random_connected_graph(['S' + str(i + 1)
-                                    for i in range(num_stations)], density)
     stations = {}
     lines = {}
-    trains = {}
     for node in graph.nodes:
         station_capacity = random.randint(
             min_station_capacity, max_station_capacity)
@@ -111,7 +86,16 @@ def generate_game_state(**kwargs) -> tuple[NetworkState, nx.Graph]:
         capacity = random.randint(min_line_capacity, max_line_capacity)
         lines[name] = Line(name=name, length=length, start=edge[0],
                            end=edge[1], capacity=capacity, trains=[])
+    return NetworkState(stations=stations, lines=lines, passenger_groups={}, trains={}), graph
 
+
+def generate_trains(state: NetworkState, graph: nx.Graph, **kwargs):
+    num_trains = kwargs.get('num_trains', random.randint(1, math.ceil(len(state.stations)*0.8)))
+    min_train_speed = kwargs.get('min_train_speed', 1)
+    max_train_speed = kwargs.get('max_train_speed', 10)
+    min_train_capacity = kwargs.get('min_train_capacity', 1)
+    max_train_capacity = kwargs.get('max_train_capacity', 60)
+    trains = {}
     for i in range(num_trains):
         train_capacity = random.randint(
             min_train_capacity, max_train_capacity)
@@ -131,7 +115,7 @@ def generate_game_state(**kwargs) -> tuple[NetworkState, nx.Graph]:
                 capacity=train_capacity,
                 passenger_groups=[],
                 next_station=None)
-            stations[start].trains.append(name)
+            state.stations[start].trains.append(name)
         else:
             trains[name] = Train(
                 name=name,
@@ -141,6 +125,18 @@ def generate_game_state(**kwargs) -> tuple[NetworkState, nx.Graph]:
                 capacity=train_capacity,
                 passenger_groups=[],
                 next_station=None)
+    state.trains = trains
+
+
+def generate_passenger_groups(state: NetworkState, graph: nx.Graph, **kwargs):
+    num_passengers = kwargs.get(
+        'num_passengers', random.randint(
+            1, math.floor(
+                len(state.stations) * 0.8)))
+    min_group_size = kwargs.get('min_group_size', 1)
+    max_group_size = kwargs.get('min_group_size', 15)
+    min_time = kwargs.get('min_time', 1)
+    max_time = kwargs.get('min_time', 10)
     passengers = {}
     for i in range(num_passengers):
         name = 'P' + str(i + 1)
@@ -156,9 +152,25 @@ def generate_game_state(**kwargs) -> tuple[NetworkState, nx.Graph]:
             group_size=size,
             destination=destination,
             time_remaining=time)
+    state.passenger_groups = passengers
 
-    new_game_state = NetworkState(trains, passengers, stations, lines)
-    return new_game_state, graph
+
+def generate_game_state(**kwargs) -> tuple[NetworkState, nx.Graph]:
+    for _ in range(5):
+        state, graph = generate_stations_and_lines(**kwargs)
+        generate_trains(state, graph, **kwargs)
+        generate_passenger_groups(state, graph, **kwargs)
+
+        if not state.is_valid():
+            print("state is invalid, regenerating...")
+            continue
+        max_group_size = max([group.group_size for group in state.passenger_groups.values()])
+        max_train_capacity = max([train.capacity for train in state.trains.values()])
+        if max_group_size > max_train_capacity:
+            print("there are groups that cannot be transported, regenerating...")
+            continue
+        return state, graph
+    raise Exception("could not generate a reasonable network after 5 attempts. please check your inṕut parameters!")
 
 
 if __name__ == '__main__':
