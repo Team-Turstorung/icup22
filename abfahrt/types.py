@@ -39,7 +39,7 @@ class Train:
     line_progress: float = 0
     passenger_groups: list[str] = field(default_factory=list, compare=False)
 
-    def is_valid(self, game_state: 'GameState') -> bool:
+    def is_valid(self, game_state: 'NetworkState') -> bool:
         if self.position_type not in [
                 TrainPositionType.STATION, TrainPositionType.LINE, TrainPositionType.NOT_STARTED]:
             return False
@@ -77,7 +77,7 @@ class Station:
     trains: list[str] = field(default_factory=list, compare=False)
     passenger_groups: list[str] = field(default_factory=list, compare=False)
 
-    def is_valid(self, game_state: 'GameState') -> bool:
+    def is_valid(self, game_state: 'NetworkState') -> bool:
         if self.capacity < 0:
             return False
         if not isinstance(self.trains, list):
@@ -108,7 +108,7 @@ class PassengerGroup:
     destination: str
     time_remaining: int
 
-    def is_valid(self, game_state: 'GameState') -> bool:
+    def is_valid(self, game_state: 'NetworkState') -> bool:
         if self.position_type not in [
                 PassengerGroupPositionType.STATION, PassengerGroupPositionType.TRAIN,
                 PassengerGroupPositionType.DESTINATION_REACHED]:
@@ -148,7 +148,7 @@ class Line:
     capacity: int
     trains: list[str] = field(default_factory=list, compare=False)
 
-    def is_valid(self, game_state: 'GameState') -> bool:
+    def is_valid(self, game_state: 'NetworkState') -> bool:
         if self.length <= 0:
             return False
         if self.start not in game_state.stations or self.end not in game_state.stations:
@@ -169,7 +169,7 @@ class Line:
 
 
 @dataclass()
-class GameState:
+class NetworkState:
     trains: dict[str, Train] = field(default_factory=dict)
     passenger_groups: dict[str, PassengerGroup] = field(default_factory=dict)
     stations: dict[str, Station] = field(default_factory=dict)

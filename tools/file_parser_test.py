@@ -1,7 +1,7 @@
 from unittest import TestCase
 
 from tools.file_parser import parse_input_file, parse_output_file
-from tools.game import TrainPositionType, PassengerGroupPositionType
+from abfahrt.types import TrainPositionType, PassengerGroupPositionType
 
 
 def create_test_class(dataset):
