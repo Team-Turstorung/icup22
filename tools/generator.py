@@ -5,7 +5,7 @@ import argparse
 import networkx as nx
 import matplotlib.pyplot as plt
 
-from tools.game import GameState, Station, Line, Train, TrainPositionType, PassengerGroup, PassengerGroupPositionType
+from abfahrt.types import NetworkState, Station, Line, Train, TrainPositionType, PassengerGroup, PassengerGroupPositionType
 
 
 # adapted from https://stackoverflow.com/a/14618505
@@ -55,7 +55,7 @@ def random_connected_graph(nodes, density=0):
     return graph
 
 
-def generate_game_state(**kwargs) -> tuple[GameState, nx.Graph]:
+def generate_game_state(**kwargs) -> tuple[NetworkState, nx.Graph]:
     num_stations = kwargs.get('num_stations', random.randint(5, 10))
     num_trains = kwargs.get('num_trains', random.randint(
         max(1, math.floor(num_stations * 0.5)), math.ceil(num_stations * 1.2)))
@@ -157,7 +157,7 @@ def generate_game_state(**kwargs) -> tuple[GameState, nx.Graph]:
             destination=destination,
             time_remaining=time)
 
-    new_game_state = GameState(trains, passengers, stations, lines)
+    new_game_state = NetworkState(trains, passengers, stations, lines)
     return new_game_state, graph
 
 

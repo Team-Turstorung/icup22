@@ -8,13 +8,12 @@ from dash import dcc
 from dash import dash_table as dt
 from dash.dependencies import Input, Output, State
 from dash.exceptions import PreventUpdate
-from dash.html.H2 import H2
 import networkx as nx
 import plotly.graph_objects as go
 
 from tools.generator import generate_game_state
 from tools.file_parser import parse_input_text, parse_output_text
-from tools.game import GameState, Station, Line, Train, TrainPositionType, PassengerGroup, PassengerGroupPositionType  # pylint: disable=unused-import
+from abfahrt.types import TrainPositionType, PassengerGroupPositionType  # pylint: disable=unused-import
 
 
 def get_node_traces(pos: dict, stations: dict,

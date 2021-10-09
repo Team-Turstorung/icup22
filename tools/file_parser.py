@@ -2,7 +2,7 @@ from collections import defaultdict
 
 import networkx as nx
 
-from tools.game import GameState, Station, Line, Train, TrainPositionType, PassengerGroup, PassengerGroupPositionType, \
+from abfahrt.types import NetworkState, Station, Line, Train, TrainPositionType, PassengerGroup, PassengerGroupPositionType, \
     Schedule, RoundAction
 
 
@@ -18,7 +18,7 @@ def get_input_mode(line: str, current_mode: str) -> (str, bool):
     return current_mode, False
 
 
-def parse_input_text(text: str) -> [GameState, nx.Graph]:
+def parse_input_text(text: str) -> [NetworkState, nx.Graph]:
     trains = {}
     passenger_groups = {}
     stations = {}
@@ -111,7 +111,7 @@ def parse_input_text(text: str) -> [GameState, nx.Graph]:
                                                                         destination=destination, time_remaining=time_remaining)
                 stations[position].passenger_groups.append(passenger_group_name)
 
-    game_state = GameState(
+    game_state = NetworkState(
         trains,
         passenger_groups,
         stations,
@@ -180,7 +180,7 @@ def make_graph(stations: dict, train_lines: dict) -> nx.Graph:
     return world
 
 
-def parse_input_file(file_path: str) -> (GameState, nx.Graph):
+def parse_input_file(file_path: str) -> (NetworkState, nx.Graph):
     with open(file_path, 'r', encoding='utf-8') as file:
         text = file.read()
         return parse_input_text(text)
