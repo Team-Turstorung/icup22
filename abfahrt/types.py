@@ -262,9 +262,6 @@ class NetworkState:
                 else:
                     train.line_progress += train.speed
 
-        if not self.is_valid():
-            raise Exception("invalid state")
-
     def to_dict(self) -> dict:
         return {"trains": {name: train.to_dict()
                            for (name, train) in self.trains.items()},

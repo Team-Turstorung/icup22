@@ -52,14 +52,15 @@ class SimpleSolver(Solution):
             round_action = RoundAction()
 
             if max_capacity_train.position_type == TrainPositionType.LINE:
-                current_line = network_state.lines[next_line_id].length
-                if max_capacity_train.line_progress + max_capacity_train.speed >= current_line:
+                current_line_length = network_state.lines[next_line_id].length
+                if max_capacity_train.line_progress + max_capacity_train.speed >= current_line_length:
                     if len(network_state.stations[current_path[0]].trains) == network_state.stations[current_path[0]].capacity:
                         leaving_train_id = network_state.stations[current_path[0]].trains[0]
                         round_action.train_departs[leaving_train_id] = next_line_id
 
                 network_state.apply(round_action)
-                network_state.is_valid()
+                if not network_state.is_valid():
+                    raise Exception(f"invalid state at round {round_id}")
                 actions[round_id] = round_action
                 continue  # enjoying the ride
 
@@ -108,7 +109,8 @@ class SimpleSolver(Solution):
                     current_path = current_path[1:]
 
             network_state.apply(round_action)
-            network_state.is_valid()
+            if not network_state.is_valid():
+                raise Exception(f"invalid state at round {round_id}")
             actions[round_id] = round_action
 
         generated_schedule = Schedule(actions)
