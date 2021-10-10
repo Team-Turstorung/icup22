@@ -1,7 +1,7 @@
 from collections import defaultdict
+from dataclasses import dataclass, field
 from enum import Enum
 from typing import Optional
-from dataclasses import dataclass, field
 
 
 class TrainPositionType(Enum):
@@ -41,13 +41,13 @@ class Train:
 
     def is_valid(self, game_state: 'NetworkState') -> bool:
         if self.position_type not in [
-                TrainPositionType.STATION, TrainPositionType.LINE, TrainPositionType.NOT_STARTED]:
+            TrainPositionType.STATION, TrainPositionType.LINE, TrainPositionType.NOT_STARTED]:
             return False
         if self.position_type == TrainPositionType.STATION and self.position not in game_state.stations:
             return False
         if self.position_type == TrainPositionType.LINE and (
-                self.position not in game_state.lines or self.line_progress is None or self.line_progress < 0 or self.line_progress >=
-                game_state.lines[self.position].length or self.next_station is None):
+            self.position not in game_state.lines or self.line_progress is None or self.line_progress < 0 or self.line_progress >=
+            game_state.lines[self.position].length or self.next_station is None):
             return False
         if self.capacity < 0:
             return False
@@ -56,7 +56,7 @@ class Train:
         if not isinstance(self.passenger_groups, list):
             return False
         if any(
-                [group not in game_state.passenger_groups for group in self.passenger_groups]):
+            [group not in game_state.passenger_groups for group in self.passenger_groups]):
             return False
         if sum([game_state.passenger_groups[group].group_size for group in self.passenger_groups]
                ) > self.capacity:
@@ -89,7 +89,7 @@ class Station:
         if not isinstance(self.passenger_groups, list):
             return False
         if any(
-                [group not in game_state.passenger_groups for group in self.passenger_groups]):
+            [group not in game_state.passenger_groups for group in self.passenger_groups]):
             return False
         return True
 
@@ -110,8 +110,8 @@ class PassengerGroup:
 
     def is_valid(self, game_state: 'NetworkState') -> bool:
         if self.position_type not in [
-                PassengerGroupPositionType.STATION, PassengerGroupPositionType.TRAIN,
-                PassengerGroupPositionType.DESTINATION_REACHED]:
+            PassengerGroupPositionType.STATION, PassengerGroupPositionType.TRAIN,
+            PassengerGroupPositionType.DESTINATION_REACHED]:
             return False
         if self.position_type == PassengerGroupPositionType.STATION and self.position not in game_state.stations:
             return False
@@ -252,8 +252,7 @@ class NetworkState:
 
         for train in self.trains.values():
             if train.position_type == TrainPositionType.LINE:
-                if train.line_progress + \
-                        train.speed >= self.lines[train.position].length:
+                if train.line_progress + train.speed >= self.lines[train.position].length:
                     train.position_type = TrainPositionType.STATION
                     self.lines[train.position].trains.remove(train.name)
                     train.position = train.next_station
@@ -261,6 +260,9 @@ class NetworkState:
                     train.next_station = None
                 else:
                     train.line_progress += train.speed
+
+        if not self.is_valid():
+            raise Exception("invalid state")
 
     def to_dict(self) -> dict:
         return {"trains": {name: train.to_dict()
@@ -303,12 +305,57 @@ class RoundAction:
     def is_zero_round(self):
         is_zero_round = len(self.train_starts) != 0
         if is_zero_round and (len(self.train_departs) != 0 or len(
-                self.passenger_boards) != 0 or len(self.passenger_detrains) != 0):
+            self.passenger_boards) != 0 or len(self.passenger_detrains) != 0):
             raise Exception(
                 "invalid round: should be zero round, but more actions")
         return is_zero_round
+
+    def serialize(self, current_round: int) -> [dict, dict]:
+        train_actions, passenger_actions = dict(), dict()
+        for train_id, station_id in self.train_starts.items():
+            train_actions[train_id] = f"{current_round} Start {station_id}"
+        for train_id, line_id in self.train_departs.items():
+            train_actions[train_id] = f"{current_round} Depart {line_id}"
+        for passenger_id, train_id in self.passenger_boards.items():
+            passenger_actions[passenger_id] = f"{current_round} Board {train_id}"
+        for passenger_id in self.passenger_detrains:
+            passenger_actions[passenger_id] = f"{current_round} Detrain"
+        return train_actions, passenger_actions
 
 
 @dataclass
 class Schedule:
     actions: defaultdict[int, RoundAction]
+
+    def serialize(self) -> str:
+        all_train_actions, all_passenger_actions = dict(), dict()
+
+        num_rounds = max(self.actions.keys())
+        start_round = 0 if self.actions[0].is_zero_round() else 1
+        for i in range(start_round, num_rounds + 1):
+            current_round_action = self.actions[i]
+            train_actions, passenger_actions = current_round_action.serialize(i)
+            for train_id, train_action in train_actions.items():
+                if train_id in all_train_actions:
+                    all_train_actions[train_id].append(train_action)
+                else:
+                    all_train_actions[train_id] = [train_action]
+
+            for passenger_id, passenger_action in passenger_actions.items():
+                if passenger_id in all_passenger_actions:
+                    all_passenger_actions[passenger_id].append(passenger_action)
+                else:
+                    all_passenger_actions[passenger_id] = [passenger_action]
+
+        output = ""
+        for train_id, all_actions in all_train_actions.items():
+            output += f"[Train:{train_id}]\n"
+            output += '\n'.join(all_actions)
+            output += '\n\n'
+
+        for passenger_id, all_actions in all_passenger_actions.items():
+            output += f"[Passenger:{passenger_id}]\n"
+            output += '\n'.join(all_actions)
+            output += '\n\n'
+
+        return output
