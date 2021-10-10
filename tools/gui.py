@@ -524,6 +524,5 @@ def initialize_tables(game_information):
         )}
 
 
-# Start App
-if __name__ == '__main__':
+def start_gui():
     app.run_server(debug=True)

@@ -337,6 +337,10 @@ class RoundAction:
 class Schedule:
     actions: defaultdict[int, RoundAction]
 
+    @classmethod
+    def from_dict(cls, dictionary):
+        return Schedule(defaultdict(RoundAction, dictionary))
+
     def serialize(self) -> str:
         all_train_actions, all_passenger_actions = dict(), dict()
 

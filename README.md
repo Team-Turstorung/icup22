@@ -1,6 +1,6 @@
 # icup22
 
-Run GUI with `python -m tools.gui`. Run generator with `python -m tools.generator`.
+Run `main.py --help` to see everything that is available.
 
 This script runs all the tests of the pipeline. Add it to `.git/hooks/pre-commit` and make it executable. Then all the
 checks will be performed before commiting.

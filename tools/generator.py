@@ -3,9 +3,9 @@ import random
 import argparse
 
 import networkx as nx
-import matplotlib.pyplot as plt
 
-from abfahrt.types import NetworkState, Station, Line, Train, TrainPositionType, PassengerGroup, PassengerGroupPositionType
+from abfahrt.types import NetworkState, Station, Line, Train, TrainPositionType, PassengerGroup, \
+    PassengerGroupPositionType
 
 
 # adapted from https://stackoverflow.com/a/14618505
@@ -47,7 +47,7 @@ def random_connected_graph(nodes, density=0):
     while missing_edges > 0:
         n_1, n_2 = random.choice(nodes), random.choice(nodes)
         if not graph.has_edge(n_1, n_2) and not graph.has_edge(
-                n_2, n_1) and n_1 != n_2:
+            n_2, n_1) and n_1 != n_2:
             graph.add_edge(n_1, n_2, name='L' + str(edge_counter))
             edge_counter += 1
             missing_edges -= 1
@@ -90,7 +90,7 @@ def generate_stations_and_lines(**kwargs) -> tuple[NetworkState, nx.Graph]:
 
 
 def generate_trains(state: NetworkState, graph: nx.Graph, **kwargs):
-    num_trains = kwargs.get('num_trains', random.randint(1, math.ceil(len(state.stations)*0.8)))
+    num_trains = kwargs.get('num_trains', random.randint(1, math.ceil(len(state.stations) * 0.8)))
     min_train_speed = kwargs.get('min_train_speed', 1)
     max_train_speed = kwargs.get('max_train_speed', 10)
     min_train_capacity = kwargs.get('min_train_capacity', 1)
@@ -173,8 +173,7 @@ def generate_game_state(**kwargs) -> tuple[NetworkState, nx.Graph]:
     raise Exception("could not generate a reasonable network after 5 attempts. please check your inṕut parameters!")
 
 
-if __name__ == '__main__':
-    parser = argparse.ArgumentParser()
+def create_generator_parser(parser: argparse.ArgumentParser):
     parser.add_argument('output', nargs='?', default=None)
     parser.add_argument('--density', default=0, type=float,
                         help='Network density, approx. |E|/|V|^2. 0 is just connected, 1 is fully connected.')
@@ -203,20 +202,14 @@ if __name__ == '__main__':
     parser.add_argument('--max-group-size', type=int)
     parser.add_argument('--min-time', type=int)
     parser.add_argument('--max-time', type=int)
-    parser.add_argument('--draw', action='store_true')
-    args = parser.parse_args()
 
+
+def execute(args: argparse.Namespace):
     args_dict = vars(args)
-
-    game_state, network_graph = generate_game_state(
+    game_state, _ = generate_game_state(
         **{key: args_dict[key] for key in args_dict if args_dict[key] is not None})
-
     if args.output is None:
         print(game_state.serialize())
     else:
-        with open(args.output, 'w', encoding='utf-8') as f:
-            f.write(game_state.serialize())
-
-    if args.draw:
-        nx.draw(network_graph, with_labels=True)
-        plt.show()
+        with open(args.output, 'w', encoding='utf-8') as file:
+            file.write(game_state.serialize())

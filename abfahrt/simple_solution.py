@@ -1,11 +1,8 @@
-from copy import deepcopy
-
 import networkx as nx
 from networkx.algorithms import single_source_dijkstra_path_length, bidirectional_dijkstra
 
 from abfahrt.solution import Solution
 from abfahrt.types import NetworkState, Schedule, TrainPositionType, RoundAction
-from tools.file_parser import parse_input_file
 
 
 class SimpleSolver(Solution):
@@ -112,14 +109,5 @@ class SimpleSolver(Solution):
                 raise Exception(f"invalid state at round {round_id}")
             actions[round_id] = round_action
 
-        generated_schedule = Schedule(actions)
+        generated_schedule = Schedule.from_dict(actions)
         return generated_schedule
-
-
-if __name__ == '__main__':
-    game_state, graph = parse_input_file(
-        'user_worlds/capacity_test.txt')
-    solver = SimpleSolver()
-    schedule = solver.schedule(deepcopy(game_state), graph)
-
-    print(schedule.serialize())
