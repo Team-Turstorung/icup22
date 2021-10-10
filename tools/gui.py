@@ -404,6 +404,8 @@ def update_output(contents, output_content, _,):
             action = schedule.actions[i]
             new_game_state = deepcopy(game_state)
             new_game_state.apply(action)
+            if not new_game_state.is_valid():
+                raise Exception(f"invalid state at round {i}")
             game_state_dicts[i] = make_dict_serializable(asdict(game_state))
             game_state = new_game_state
 
