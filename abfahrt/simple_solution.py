@@ -94,16 +94,15 @@ class SimpleSolver(Solution):
             else:
                 # go to next station in path
                 next_line_id = network_graph.edges[max_capacity_train.position,
-                                                current_path[1]]['name']
+                                                   current_path[1]]['name']
 
-                current_line = network_state.lines[next_line_id].length
-                if max_capacity_train.line_progress + max_capacity_train.speed >= current_line:
-                    #print(f"{round_id}")
-                    #print(f"{max_capacity_train.position}")
-                    #print("Other station is blocked")
-                    if len(network_state.stations[current_path[0]].trains) == network_state.stations[current_path[0]].capacity:
-                        leaving_train_id = network_state.stations[current_path[0]].trains[0]
+                line_length = network_state.lines[next_line_id].length
+                if max_capacity_train.speed >= line_length:
+                    # train arrives in same round as it departs
+                    if len(network_state.stations[current_path[1]].trains) == network_state.stations[current_path[1]].capacity:
+                        leaving_train_id = network_state.stations[current_path[1]].trains[0]
                         round_action.train_departs[leaving_train_id] = next_line_id
+
                 if len(network_state.lines[next_line_id].trains) < network_state.lines[next_line_id].capacity:
                     round_action.train_departs[max_capacity_train.name] = next_line_id
                     current_path = current_path[1:]
