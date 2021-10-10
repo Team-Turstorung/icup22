@@ -12,8 +12,9 @@ class SimpleSolver(Solution):
     def schedule(self, network_state: NetworkState,
                  network_graph: nx.Graph) -> Schedule:
         def get_closest_station_with_passengers(train_pos):
-            sorted_dict = sorted(single_source_dijkstra_path_length(
-                network_graph, train_pos).items(), key=lambda item: item[1])
+            paths = single_source_dijkstra_path_length(
+                network_graph, train_pos).items()
+            sorted_dict = sorted(paths, key=lambda item: item[1])
             for station_id, _ in sorted_dict:
                 if len(network_state.stations[station_id].passenger_groups) > 0:
                     return station_id
@@ -48,11 +49,17 @@ class SimpleSolver(Solution):
         next_line_id = ''  # this is ugly
         while True:
             round_id += 1
-            print(f'round id: {round_id}')
             round_action = RoundAction()
 
             if max_capacity_train.position_type == TrainPositionType.LINE:
+                current_line = network_state.lines[next_line_id].length
+                if max_capacity_train.line_progress + max_capacity_train.speed >= current_line:
+                    if len(network_state.stations[current_path[0]].trains) == network_state.stations[current_path[0]].capacity:
+                        leaving_train_id = network_state.stations[current_path[0]].trains[0]
+                        round_action.train_departs[leaving_train_id] = next_line_id
+
                 network_state.apply(round_action)
+                network_state.is_valid()
                 actions[round_id] = round_action
                 continue  # enjoying the ride
 
@@ -101,6 +108,7 @@ class SimpleSolver(Solution):
                     current_path = current_path[1:]
 
             network_state.apply(round_action)
+            network_state.is_valid()
             actions[round_id] = round_action
 
         generated_schedule = Schedule(actions)
@@ -113,5 +121,5 @@ if __name__ == '__main__':
     solver = SimpleSolver()
     schedule = solver.schedule(deepcopy(game_state), graph)
 
-    game_state.apply_all(schedule)
-    print(f'final game state: {game_state}')
+    #print(schedule.serialize())
+    #print(f'final game state: {game_state}')

@@ -258,6 +258,7 @@ class NetworkState:
                     train.position = train.next_station
                     self.stations[train.position].trains.append(train.name)
                     train.next_station = None
+                    train.line_progress = 0
                 else:
                     train.line_progress += train.speed
 
