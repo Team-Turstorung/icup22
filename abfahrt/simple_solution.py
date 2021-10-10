@@ -15,8 +15,7 @@ class SimpleSolver(Solution):
             sorted_dict = sorted(single_source_dijkstra_path_length(
                 network_graph, train_pos).items(), key=lambda item: item[1])
             for station_id, _ in sorted_dict:
-                if len(
-                        network_state.stations[station_id].passenger_groups) > 0:
+                if len(network_state.stations[station_id].passenger_groups) > 0:
                     return station_id
 
         # step 0
@@ -46,6 +45,7 @@ class SimpleSolver(Solution):
 
         round_id = 0
         current_path = []
+        next_line_id = ''  # this is ugly
         while True:
             round_id += 1
             print(f'round id: {round_id}')
@@ -57,6 +57,8 @@ class SimpleSolver(Solution):
                 continue  # enjoying the ride
 
             if len(current_path) == 1:
+                # if station we arrive at is full, depart some train to some line (there is always at least 1 free)
+
                 if len(max_capacity_train.passenger_groups) == 0:
                     # pick up
                     passenger_group = network_state.stations[max_capacity_train.position].passenger_groups[0]
@@ -83,10 +85,20 @@ class SimpleSolver(Solution):
                         G=network_graph, source=max_capacity_train.position, target=station)
             else:
                 # go to next station in path
-                next_line = network_graph.edges[max_capacity_train.position,
+                next_line_id = network_graph.edges[max_capacity_train.position,
                                                 current_path[1]]['name']
-                round_action.train_departs[max_capacity_train.name] = next_line
-                current_path = current_path[1:]
+
+                current_line = network_state.lines[next_line_id].length
+                if max_capacity_train.line_progress + max_capacity_train.speed >= current_line:
+                    #print(f"{round_id}")
+                    #print(f"{max_capacity_train.position}")
+                    #print("Other station is blocked")
+                    if len(network_state.stations[current_path[0]].trains) == network_state.stations[current_path[0]].capacity:
+                        leaving_train_id = network_state.stations[current_path[0]].trains[0]
+                        round_action.train_departs[leaving_train_id] = next_line_id
+                if len(network_state.lines[next_line_id].trains) < network_state.lines[next_line_id].capacity:
+                    round_action.train_departs[max_capacity_train.name] = next_line_id
+                    current_path = current_path[1:]
 
             network_state.apply(round_action)
             actions[round_id] = round_action
@@ -97,7 +109,7 @@ class SimpleSolver(Solution):
 
 if __name__ == '__main__':
     game_state, graph = parse_input_file(
-        '/home/alex/informaticup2022/icup22/examples/official/simple/input.txt')
+        'user_worlds/capacity_test.txt')
     solver = SimpleSolver()
     schedule = solver.schedule(deepcopy(game_state), graph)
 
