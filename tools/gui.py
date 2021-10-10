@@ -473,7 +473,7 @@ def update_query(hover_data):
     if hover_data is not None:
         data = hover_data['points'][0]['customdata']
 
-        query_list = []
+        query_list = list()
         query_list.append('{position} = ' + data['name'])
         for train in data['trains']:
             query_list.append("{position} = " +

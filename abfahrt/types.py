@@ -77,6 +77,12 @@ class Station:
     trains: list[str] = field(default_factory=list, compare=False)
     passenger_groups: list[str] = field(default_factory=list, compare=False)
 
+    def is_full(self) -> bool:
+        return len(self.trains) == self.capacity
+
+    def get_free_capacity(self) -> int:
+        return self.capacity - len(self.trains)
+
     def is_valid(self, game_state: 'NetworkState') -> bool:
         if self.capacity < 0:
             return False
@@ -147,6 +153,12 @@ class Line:
     end: str  # station id
     capacity: int
     trains: list[str] = field(default_factory=list, compare=False)
+
+    def is_full(self) -> bool:
+        return len(self.trains) == self.capacity
+
+    def get_free_capacity(self) -> int:
+        return self.capacity - len(self.trains)
 
     def is_valid(self, game_state: 'NetworkState') -> bool:
         if self.length <= 0:

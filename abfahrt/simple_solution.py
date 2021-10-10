@@ -54,7 +54,7 @@ class SimpleSolver(Solution):
             if max_capacity_train.position_type == TrainPositionType.LINE:
                 current_line_length = network_state.lines[next_line_id].length
                 if max_capacity_train.line_progress + max_capacity_train.speed >= current_line_length:
-                    if len(network_state.stations[current_path[0]].trains) == network_state.stations[current_path[0]].capacity:
+                    if network_state.stations[current_path[0]].is_full():
                         leaving_train_id = network_state.stations[current_path[0]].trains[0]
                         round_action.train_departs[leaving_train_id] = next_line_id
 
@@ -99,11 +99,11 @@ class SimpleSolver(Solution):
                 line_length = network_state.lines[next_line_id].length
                 if max_capacity_train.speed >= line_length:
                     # train arrives in same round as it departs
-                    if len(network_state.stations[current_path[1]].trains) == network_state.stations[current_path[1]].capacity:
+                    if network_state.stations[current_path[1]].is_full():
                         leaving_train_id = network_state.stations[current_path[1]].trains[0]
                         round_action.train_departs[leaving_train_id] = next_line_id
 
-                if len(network_state.lines[next_line_id].trains) < network_state.lines[next_line_id].capacity:
+                if not network_state.lines[next_line_id].is_full():
                     round_action.train_departs[max_capacity_train.name] = next_line_id
                     current_path = current_path[1:]
 
@@ -122,5 +122,4 @@ if __name__ == '__main__':
     solver = SimpleSolver()
     schedule = solver.schedule(deepcopy(game_state), graph)
 
-    #print(schedule.serialize())
-    #print(f'final game state: {game_state}')
+    print(schedule.serialize())
