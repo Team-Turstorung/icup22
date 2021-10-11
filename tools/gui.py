@@ -1,4 +1,5 @@
 import base64
+import math
 from copy import deepcopy
 from dataclasses import asdict
 
@@ -88,7 +89,7 @@ def get_node_traces(pos: dict, stations: dict,
         node_trace['y'] += tuple([y])
         node_trace['text'] += tuple([station['name']])
         colors += [color]
-        sizes += [station['capacity']]
+        sizes += [min(40, station['capacity'])]
         symbols += [symbol]
         opacities += [opacity]
     node_trace['marker'] = {
@@ -138,7 +139,7 @@ def get_edge_traces(pos: dict, lines: dict,
         trace = go.Scatter(x=tuple([x_0, x_1, None]), y=tuple([y_0, y_1, None]),
                            mode='lines',
                            line={
-            'width': line['capacity'] * 3,
+            'width': min(20, line['capacity'] * 3),
             "color": color, "dash": line_type},
             opacity=1)
 
@@ -493,7 +494,9 @@ def initialize_tables(game_information):
         raise PreventUpdate
     game_state = game_information['game_state']
     positions = game_information['positions']
+    print("Begin with map")
     plot_traces = make_plotly_map_from_game_state(game_state, positions)
+    print("Map is finished")
     sorted_stations = []
     sorted_trains = []
     if game_state is not None:
@@ -504,6 +507,7 @@ def initialize_tables(game_information):
     return sorted_trains, sorted_stations, {
         "data": plot_traces,
         "layout": go.Layout(
+            uirevision=True,
             title='Map full of stations and train lines',
             showlegend=False,
             autosize=True,
