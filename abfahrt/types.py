@@ -44,10 +44,12 @@ class Train:
             TrainPositionType.STATION, TrainPositionType.LINE, TrainPositionType.NOT_STARTED]:
             return False
         if self.position_type == TrainPositionType.STATION and self.position not in game_state.stations:
+            print(f"position_type is station but {self.name} is not in a station")
             return False
         if self.position_type == TrainPositionType.LINE and (
             self.position not in game_state.lines or self.line_progress is None or self.line_progress < 0 or self.line_progress >=
             game_state.lines[self.position].length or self.next_station is None):
+            print(f"There is a problem with {self.name} on line {self.position}")
             return False
         if self.capacity < 0:
             return False
@@ -57,9 +59,11 @@ class Train:
             return False
         if any(
             [group not in game_state.passenger_groups for group in self.passenger_groups]):
+            print(f"There is a stowaway on {self.name}")
             return False
         if sum([game_state.passenger_groups[group].group_size for group in self.passenger_groups]
                ) > self.capacity:
+            print(f"There is not enough capacity on {self.name}")
             return False
         return True
 
@@ -89,6 +93,7 @@ class Station:
         if not isinstance(self.trains, list):
             return False
         if len(self.trains) > self.capacity:
+            print(f"there are too many trains in {self.name}. {len(self.trains)}/{self.capacity}")
             return False
         if any([train not in game_state.trains for train in self.trains]):
             return False
@@ -172,6 +177,7 @@ class Line:
         if any([train not in game_state.trains for train in self.trains]):
             return False
         if len(self.trains) > self.capacity:
+            print(f"There are too many trains on {self.name}. {len(self.trains)}/{self.capacity}")
             return False
         return True
 
@@ -186,6 +192,9 @@ class NetworkState:
     passenger_groups: dict[str, PassengerGroup] = field(default_factory=dict)
     stations: dict[str, Station] = field(default_factory=dict)
     lines: dict[str, Line] = field(default_factory=dict)
+
+    def waiting_passengers(self) -> dict[str, PassengerGroup]:
+        return {name: group for name, group in self.passenger_groups.items() if group.position_type == PassengerGroupPositionType.STATION}
 
     def is_valid(self) -> bool:
         return all([train.is_valid(self) for train in self.trains.values()]) and all(
