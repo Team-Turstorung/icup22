@@ -1,3 +1,5 @@
+import copy
+
 import networkx as nx
 from networkx.algorithms import all_pairs_dijkstra
 
@@ -76,7 +78,7 @@ class SimplesSolverMultipleTrains(Solution):
             if train.position_type == TrainPositionType.LINE or train.name not in on_tour:
                 return
             if len(path) == 1:
-                # if station we arrive at is full, depart some train to some line (there is always at least 1 free)
+                locks[train.position].discard(train.name)
                 if len(train.passenger_groups) == 0:
                     # pick up
                     board_passengers.append(train)
@@ -85,10 +87,20 @@ class SimplesSolverMultipleTrains(Solution):
                     detrain_passengers.append(train.passenger_groups[0])
                 on_tour.remove(train.name)
             else:
+                locks[train.position].discard(train.name)
                 # go to next station in path
                 next_line_id = network_graph.edges[train.position, path[1]]['name']
-                round_action.train_departs[train.name] = next_line_id
-                train_paths[train.name] = path[1:]
+                next_line = network_state.lines[next_line_id]
+                if (line_usage.get(next_line_id, 0) + len(next_line.trains) - next_line.capacity) < 0:
+                    next_station = network_state.stations[path[1]]
+                    if len(locks[next_station.name]) + len(next_station.trains) - next_station.capacity < 0:
+                        if next_line.name in line_usage:
+                            line_usage[next_line.name] += 1
+                        else:
+                            line_usage[next_line.name] = 1
+                        locks[next_station.name].add(train.name)
+                        round_action.train_departs[train.name] = next_line_id
+                        train_paths[train.name] = path[1:]
 
         def plan_train(train: Train):
             if len(train.passenger_groups) == 0:
@@ -97,7 +109,7 @@ class SimplesSolverMultipleTrains(Solution):
                                               key=lambda passenger_group: passenger_priorities[passenger_group.name] / (
                                                   all_shortest_paths[train.position][0][passenger_group.position] + 1),
                                               reverse=True):
-                    if passenger_group.name not in assigned_passenger_groups:
+                    if passenger_group.name not in assigned_passenger_groups and passenger_group.group_size <= train.capacity:
                         # go for it
                         return all_shortest_paths[train.position][1][passenger_group.position]
             else:
@@ -107,22 +119,6 @@ class SimplesSolverMultipleTrains(Solution):
 
         all_shortest_paths = get_all_shortest_paths(network_graph)
         passenger_priorities = compute_priorities(list(network_state.passenger_groups.values()))
-
-        # all_relevant_nodes = set()
-        # alternative_betweenness_centrality = {}
-        # for passenger_group in network_state.passenger_groups.values():
-        #     new_set = set(all_shortest_paths[passenger_group.position][1][passenger_group.destination])
-        #     for node in new_set:
-        #         if node not in alternative_betweenness_centrality:
-        #             alternative_betweenness_centrality[node] = 1
-        #         else:
-        #             alternative_betweenness_centrality[node] += 1
-        #     all_relevant_nodes = all_relevant_nodes.union(new_set)
-        # print(sorted(alternative_betweenness_centrality.items(), key=lambda  item: item[1], reverse=True))
-        # print(len(alternative_betweenness_centrality))
-        # print(f"{max(alternative_betweenness_centrality.items(), key=lambda item: item[1])} is the maximum centrality. There are {len(network_state.passenger_groups)}")
-        #
-        # print(f"From {network_graph.number_of_nodes()} nodes There are {len(all_relevant_nodes)} nodes on shortest paths")
 
         # Create round action for zero Round
         round_action = place_wildcard_trains(network_state, all_shortest_paths)
@@ -135,8 +131,10 @@ class SimplesSolverMultipleTrains(Solution):
         train_paths = {}  # train: path
         board_passengers = []
         detrain_passengers = []
+        locks = {name: set() for name in network_state.stations}
         while True:
             print(f"Processing round {round_id}")
+            line_usage = {}
             round_action = RoundAction()
             assigned_passenger_groups = set()  # mark waiting passenger groups that have a train coming for them
             round_id += 1
