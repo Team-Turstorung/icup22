@@ -4,12 +4,14 @@ import threading
 from copy import deepcopy
 
 from abfahrt.simple_solution import SimpleSolver
+from abfahrt.simple_solution_multiple_trains import SimplesSolverMultipleTrains
 from tools import generator, file_parser
 from tools.file_parser import parse_input_file, parse_output_file
 from tools.gui import start_gui
 
 SOLUTIONS = {
     'simple': SimpleSolver,
+    'multi': SimplesSolverMultipleTrains,
 }
 
 
