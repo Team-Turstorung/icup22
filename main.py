@@ -18,9 +18,9 @@ SOLUTIONS = {
 
 
 def solve(solver, input_file, output_file):
-    game_state, graph = file_parser.parse_input_file(input_file)
+    game_state, network_graph = file_parser.parse_input_file(input_file)
     solver = SOLUTIONS[solver]()
-    sched = solver.schedule(deepcopy(game_state), graph)
+    sched = solver.schedule(deepcopy(game_state), network_graph)
     game_state.apply_all(sched)
     if output_file:
         with open(output_file, 'w', encoding='utf-8') as file:

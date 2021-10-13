@@ -1,5 +1,3 @@
-import copy
-
 import networkx as nx
 from networkx.algorithms import all_pairs_dijkstra
 
@@ -18,7 +16,7 @@ class SimplesSolverMultipleTrains(Solution):
                 all_shortest_paths[path[0]] = path[1]
             return all_shortest_paths
 
-        def place_wildcard_trains(network_state: NetworkState, shortest_paths: dict[str, tuple]) -> RoundAction:
+        def place_wildcard_trains(network_state: NetworkState) -> RoundAction:
 
             new_round_action = RoundAction()
 
@@ -31,7 +29,7 @@ class SimplesSolverMultipleTrains(Solution):
             for station_id, station in network_state.stations.items():
                 station_space_left[station_id] = station.capacity - len(station.trains)
 
-            for passenger_group_name, priority in passenger_list:
+            for passenger_group_name in passenger_list:
                 current_passenger_group = network_state.passenger_groups[passenger_group_name]
                 station = network_state.stations[current_passenger_group.position]
                 if station_space_left[station.name] <= 0:
@@ -121,7 +119,7 @@ class SimplesSolverMultipleTrains(Solution):
         passenger_priorities = compute_priorities(list(network_state.passenger_groups.values()))
 
         # Create round action for zero Round
-        round_action = place_wildcard_trains(network_state, all_shortest_paths)
+        round_action = place_wildcard_trains(network_state)
 
         actions = dict()
         round_id = 0
