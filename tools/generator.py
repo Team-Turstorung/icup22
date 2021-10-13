@@ -79,8 +79,12 @@ def generate_stations_and_lines(**kwargs) -> tuple[NetworkState, nx.Graph]:
             passenger_groups=[])
 
     for edge in graph.edges:
-        length = random.randint(
-            min_line_length, max_line_length)
+
+        length = round(
+            random.uniform(
+                min_line_length,
+                max_line_length),
+            5)
         graph.edges[edge]['weight'] = length
         name = graph.edges[edge]['name']
         capacity = random.randint(min_line_capacity, max_line_capacity)
@@ -186,13 +190,13 @@ def create_generator_parser(parser: argparse.ArgumentParser):
     # lines
     parser.add_argument('--min-line-capacity', type=int)
     parser.add_argument('--max-line-capacity', type=int)
-    parser.add_argument('--min-line-length', type=int)
-    parser.add_argument('--max-line-length', type=int)
+    parser.add_argument('--min-line-length', type=float)
+    parser.add_argument('--max-line-length', type=float)
 
     # trains
     parser.add_argument('--num-trains', type=int)
-    parser.add_argument('--min-train-speed', type=int)
-    parser.add_argument('--max-train-speed', type=int)
+    parser.add_argument('--min-train-speed', type=float)
+    parser.add_argument('--max-train-speed', type=float)
     parser.add_argument('--min-train-capacity', type=int)
     parser.add_argument('--max-train-capacity', type=int)
 
