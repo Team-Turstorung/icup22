@@ -19,6 +19,8 @@ class MipSolver(Solution):
 
         target_times = {mid(passenger_id): passenger.time_remaining for passenger_id, passenger in
                         network_state.passenger_groups.items()}
+        group_sizes = {mid(passenger_id): passenger.group_size for passenger_id, passenger in
+                        network_state.passenger_groups.items()}
         train_initial_positions = {mid(train_id): mid(train.position) for train_id, train in
                                    network_state.trains.items()}
         passenger_initial_positions = {mid(passenger_id): mid(passenger.position) for passenger_id, passenger in
@@ -33,6 +35,11 @@ class MipSolver(Solution):
         passenger_position_stations = [[[m.add_var(var_type=BINARY) for _ in passengers] for _ in stations] for _ in range(max_rounds)]
         # passenger_position_trains = [[[m.add_var(var_type=BINARY) for _ in passengers] for _ in trains] for _ in range(max_rounds)]
         passenger_time = [[m.add_var() for _ in passengers] for _ in range(max_rounds)]
+        passenger_delay = [m.add_var() for _ in passengers] # we use the implicit lower bound of 0 for the delay
+
+        # Constraint: Set passenger delay to target time minus time elapsed
+        for p in passengers:
+            m += passenger_delay[p] == (passenger_time[max_rounds-1][p]-target_times[p])*group_sizes[p]
 
         # Constraint: Trains can stay where they are or travel along the lines.
         # TODO: passengers are only allowed to travel when a train travels in the same round
@@ -79,8 +86,9 @@ class MipSolver(Solution):
             for i in range(max_rounds-1):
                 m += passenger_time[i+1][p] == (passenger_time[i][p] + 1 - passenger_position_stations[i][targets[p]][p])
 
+        # Constraint: Calculate passenger delay
         m.objective = minimize(xsum(
-            passenger_time[max_rounds-1][p]-target_time for p, target_time in target_times.items()
+            passenger_delay[p] for p in passengers
         ))
 
         print(f'model has {m.num_cols} vars, {m.num_rows} constraints and {m.num_nz} nzs')
