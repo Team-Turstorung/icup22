@@ -49,40 +49,60 @@ class MipSolver(Solution):
         passenger_position_trains = [[[m.add_var(var_type=BINARY) for _ in passengers] for _ in trains] for _ in range(max_rounds)]
         passenger_time = [[m.add_var(var_type=INTEGER) for _ in passengers] for _ in range(max_rounds)]
         passenger_delay = [m.add_var(var_type=INTEGER) for _ in passengers] # we use the implicit lower bound of 0 for the delay
-        train_progress = [[m.add_var() for _ in trains] for _ in range(max_rounds)]
-        train_direction = [[[m.add_var(var_type=BINARY) for _ in stations] for _ in trains] for _ in range(max_rounds)]
+        train_progress = [[[m.add_var() for _ in trains] for _ in lines] for _ in range(max_rounds)]
 
         # Constraint: Set passenger delay to target time minus time elapsed
         for p in passengers:
             m += passenger_delay[p] == (passenger_time[max_rounds-1][p]-target_times[p])*group_sizes[p]
 
-        # Constraint: Trains can stay where they are or travel along the lines.
+        # Constraint: Train cannot jump between lines
+        for i in range(max_rounds-1):
+            for l1 in lines:
+                for l2 in lines:
+                    if l1 == l2:
+                        continue
+                    for t in trains:
+                        m += train_position_lines[i][l1][t] + train_position_lines[i + 1][l2][t] <= 1
+
+        # Constraint: Trains cannot access stations or lines that are not connected to their current station or line
         for s1 in stations:
             for s2 in stations:
                 if s1 == s2:
                     continue
                 for t in trains:
                     if network_graph.has_edge(aid(s1), aid(s2)):
-                        edge = mid(network_graph[aid(s1)][aid(s2)]["name"])
+                        l = mid(network_graph[aid(s1)][aid(s2)]["name"])
                         # Line is shorter than train is fast
-                        if train_speeds[t] >= line_lengths[edge]:
-                            m += xsum(train_position_lines[i][edge][t] for i in range(max_rounds)) == 0
-                        # Line exists but is long, so train can never be on stations back-to-back
+                        if train_speeds[t] >= line_lengths[l]:
+                            m += xsum(train_position_lines[i][l][t] for i in range(max_rounds)) == 0
+                        # Line exists but is longer than train is fast
                         else:
                             for i in range(max_rounds-1):
+                                # Train can never be at stations back-to-back
                                 m += train_position_stations[i][s1][t] + train_position_stations[i+1][s2][t] <= 1
                                 m += train_position_stations[i+1][s1][t] + train_position_stations[i][s2][t] <= 1
+
+                                # Train arrives at station when last round's progress plus speed is greater than length
+                                m += line_lengths[l] <= train_progress[i][l][t] + train_speeds[t] + max_line_length*(2-train_position_stations[i+1][s2][t]-train_position_stations[i+1][s1][t]-train_position_lines[i][l][t])
+
                                 # Line is not reachable via any other station
                                 for s3 in stations:
                                     if s3 in (s1, s2):
                                         continue
-                                    m += train_position_stations[i][s3][t] + train_position_lines[i+1][edge][t] <= 1
-                                    m += train_position_stations[i+1][s3][t] + train_position_lines[i][edge][t] <= 1
+                                    m += train_position_stations[i][s3][t] + train_position_lines[i+1][l][t] <= 1
+                                    m += train_position_stations[i+1][s3][t] + train_position_lines[i][l][t] <= 1
                     # Line does not exist, so train cannot change positions that way
                     else:
                         for i in range(max_rounds-1):
                             m += train_position_stations[i][s1][t] + train_position_stations[i+1][s2][t] <= 1
                             m += train_position_stations[i+1][s1][t] + train_position_stations[i][s2][t] <= 1
+
+        # Constraint: Trains move with their speed, progress is zero when the train is not on the line, else bounded by line length
+        for i in range(max_rounds-1):
+            for l in lines:
+                for t in trains:
+                    m += train_progress[i+1][l][t] <= train_progress[i][l][t] + train_speeds[t]
+                    m += train_progress[i][l][t] <= line_lengths[l]*train_position_lines[i][l][t]
 
         # Constraint: When a passenger hops onto a train, the train must be in the corresponding station in two turns. The same is true when getting out.
         for i in range(max_rounds-1):
@@ -97,21 +117,6 @@ class MipSolver(Solution):
                              train_position_stations[i][s][t]
                         m += passenger_position_trains[i][t][p] + passenger_position_stations[i + 1][s][p] <= 1 + \
                              train_position_stations[i + 1][s][t]
-
-        # Constraint: Trains' progress changes according to what?
-        #for i in range(max_rounds-1):
-            #for t in trains:
-                #m += train_progress[i+1][t] == train_progress[i][t] + (xsum(train_position_lines[i+1][l][t] for l in lines))*train_speeds[t] - xsum(train_position_stations[i+1][s][t] for s in stations)*max_line_length
-
-        # Constraint: Progress is 0 when at station, else bounded by max length.
-        for i in range(max_rounds):
-            for t in trains:
-                m += train_progress[i][t] <= max_line_length*sum(train_position_lines[i][l][t] for l in lines)
-
-        # Constraint: A train has a destination iff it is on a line
-        for i in range(max_rounds):
-            for t in trains:
-                m += xsum(train_position_lines[i][l][t] for l in lines) == xsum(train_direction[i][t][s] for s in stations)
 
         # Constraint: Train capacities
         for i in range(max_rounds):
@@ -202,10 +207,7 @@ class MipSolver(Solution):
                         print(f"{i}: T{t+1} S{v+1}")
                 for l in lines:
                     if train_position_lines[i][l][t].x == 1:
-                        for s in stations:
-                            if train_direction[i][t][s].x == 1:
-                                dest = s
-                        print(f"{i}: T{t+1} L{l+1} prog {train_progress[i][t].x} dest S{dest+1}")
+                        print(f"{i}: T{t+1} L{l+1} prog {train_progress[i][l][t].x}")
         print()
         for p in passengers:
             for i in range(max_rounds):
