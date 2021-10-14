@@ -33,7 +33,7 @@ class MipSolver(Solution):
 
         train_position = [[[m.add_var(var_type=BINARY) for _ in trains]for _ in stations] for _ in range(max_rounds)]
         passenger_position_stations = [[[m.add_var(var_type=BINARY) for _ in passengers] for _ in stations] for _ in range(max_rounds)]
-        # passenger_position_trains = [[[m.add_var(var_type=BINARY) for _ in passengers] for _ in trains] for _ in range(max_rounds)]
+        passenger_position_trains = [[[m.add_var(var_type=BINARY) for _ in passengers] for _ in trains] for _ in range(max_rounds)]
         passenger_time = [[m.add_var() for _ in passengers] for _ in range(max_rounds)]
         passenger_delay = [m.add_var() for _ in passengers] # we use the implicit lower bound of 0 for the delay
 
@@ -42,7 +42,6 @@ class MipSolver(Solution):
             m += passenger_delay[p] == (passenger_time[max_rounds-1][p]-target_times[p])*group_sizes[p]
 
         # Constraint: Trains can stay where they are or travel along the lines.
-        # TODO: passengers are only allowed to travel when a train travels in the same round
         for i in range(max_rounds-1):
             for s1 in stations:
                 for s2 in stations:
@@ -51,12 +50,37 @@ class MipSolver(Solution):
                     for t in trains:
                         m += train_position[i][s1][t] + train_position[i+1][s2][t] <= 1+adjacency_matrix[s1, s2]
 
-                    #for p in passengers:
-                    #    has_corresponding_train = passenger_position_stations[i][s1][p]+train_position[i][s1][0]+passenger_position_stations[i+1][s2][p]+train_position[i+1][s2][0] == 4
-                    #    for t in trains:
-                    #        has_corresponding_train = has_corresponding_train or passenger_position_stations[i][s1][p]+train_position[i][s1][t]+passenger_position_stations[i+1][s2][p]+train_position[i+1][s2][t] == 4
-                    #    if s1 == s2:
-                    #        m += passenger_position_stations[i][s1][p] == passenger_position_stations[i][s2][p] or has_corresponding_train
+        # Constraint: When a passenger hops onto a train, the train must be in the corresponding station in two turns. The same is true when getting out.
+        for i in range(max_rounds-1):
+            for p in passengers:
+                for t in trains:
+                    for s in stations:
+                        m += passenger_position_stations[i][s][p] + passenger_position_trains[i + 1][t][p] <= 1 + \
+                             train_position[i][s][t]
+                        m += passenger_position_stations[i][s][p] + passenger_position_trains[i + 1][t][p] <= 1 + \
+                             train_position[i + 1][s][t]
+                        m += passenger_position_trains[i][t][p] + passenger_position_stations[i + 1][s][p] <= 1 + \
+                             train_position[i][s][t]
+                        m += passenger_position_trains[i][t][p] + passenger_position_stations[i + 1][s][p] <= 1 + \
+                             train_position[i + 1][s][t]
+
+        # Constraint: Passengers cannot change between two different stations
+        for i in range(max_rounds-1):
+            for p in passengers:
+                for s1 in stations:
+                    for s2 in stations:
+                        if s1 == s2:
+                            continue
+                        m += passenger_position_stations[i][s1][p] <= (1-passenger_position_stations[i+1][s2][p])
+
+        # Constraint: Passengers cannot change between two different trains
+        for i in range(max_rounds-1):
+            for p in passengers:
+                for t1 in trains:
+                    for t2 in trains:
+                        if t1 == t2:
+                            continue
+                        m += passenger_position_trains[i][t1][p] <= (1-passenger_position_trains[i+1][t2][p])
 
         # Constraint: Passengers do not move after destination reached
         for p in passengers:
@@ -71,7 +95,7 @@ class MipSolver(Solution):
         # Constraint: All passengers are at one position at a time
         for p in passengers:
             for i in range(max_rounds):
-                m += xsum(passenger_position_stations[i][s][p] for s in stations) == 1
+                m += xsum(passenger_position_stations[i][s][p] for s in stations) + xsum(passenger_position_trains[i][t][p] for t in trains) == 1
 
         # Constraint: All trains are at their initial positions in the first round
         for t in trains:
@@ -108,8 +132,11 @@ class MipSolver(Solution):
                     if train_position[i][v][t].x == 1:
                         print(f"{i}: T{t+1} S{v+1}")
         print()
-        for i in range(max_rounds):
-            for v in stations:
-                for p in passengers:
+        for p in passengers:
+            for i in range(max_rounds):
+                for v in stations:
                     if passenger_position_stations[i][v][p].x == 1:
                         print(f"{i}: P{p+1} S{v+1}")
+                for t in trains:
+                    if passenger_position_trains[i][t][p].x == 1:
+                        print(f"{i}: P{p+1} T{t+1}")
