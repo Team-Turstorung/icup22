@@ -19,7 +19,6 @@ class TrainPositionType(Enum):
 class PassengerGroupPositionType(Enum):
     STATION = 0
     TRAIN = 1
-    DESTINATION_REACHED = 2
 
     def __repr__(self):
         return self.name
@@ -120,15 +119,11 @@ class PassengerGroup:
     time_remaining: int
 
     def is_valid(self, game_state: 'NetworkState') -> bool:
-        if self.position_type not in [
-            PassengerGroupPositionType.STATION, PassengerGroupPositionType.TRAIN,
-            PassengerGroupPositionType.DESTINATION_REACHED]:
+        if self.position_type not in [PassengerGroupPositionType.STATION, PassengerGroupPositionType.TRAIN]:
             return False
         if self.position_type == PassengerGroupPositionType.STATION and self.position not in game_state.stations:
             return False
         if self.position_type == PassengerGroupPositionType.TRAIN and self.position not in game_state.trains:
-            return False
-        if self.position_type == PassengerGroupPositionType.DESTINATION_REACHED and self.position is not None:
             return False
         if self.group_size <= 0:
             return False
@@ -142,7 +137,7 @@ class PassengerGroup:
         return -self.time_remaining * self.group_size
 
     def is_destination_reached(self) -> bool:
-        return self.position_type == PassengerGroupPositionType.DESTINATION_REACHED
+        return self.position == self.destination
 
     def to_dict(self) -> dict:
         return {"name": self.name, "position": self.position,
@@ -251,13 +246,9 @@ class NetworkState:
             station = self.stations[train.position]
 
             train.passenger_groups.remove(passenger_group.name)
-            if station.name == passenger_group.destination:
-                passenger_group.position = None
-                passenger_group.position_type = PassengerGroupPositionType.DESTINATION_REACHED
-            else:
-                passenger_group.position_type = PassengerGroupPositionType.STATION
-                passenger_group.position = train.position
-                station.passenger_groups.append(group_id)
+            passenger_group.position_type = PassengerGroupPositionType.STATION
+            passenger_group.position = train.position
+            station.passenger_groups.append(group_id)
         for passenger_group_id in action.passenger_boards:
             passenger_group = self.passenger_groups[passenger_group_id]
             train = self.trains[action.passenger_boards[passenger_group_id]]
@@ -310,6 +301,8 @@ class NetworkState:
         return output
 
     def total_delay(self):
+        if not self.is_finished():
+            raise Exception("trying to get total delay when unfinished")
         return sum(
             [group.delay() for group in self.passenger_groups.values()])
 
@@ -340,6 +333,9 @@ class RoundAction:
         for passenger_id in self.passenger_detrains:
             passenger_actions[passenger_id] = f"{current_round} Detrain"
         return train_actions, passenger_actions
+
+    def is_empty(self):
+        return len(self.train_starts) == 0 and len(self.train_departs) == 0 and len(self.passenger_boards) == 0 and len(self.passenger_detrains) == 0
 
 
 @dataclass

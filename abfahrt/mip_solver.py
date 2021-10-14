@@ -1,20 +1,25 @@
+from collections import defaultdict
+from copy import deepcopy
+
 from mip import Model, xsum, minimize, BINARY, OptimizationStatus, INTEGER
 
 import networkx as nx
 
 from abfahrt.solution import Solution
-from abfahrt.types import NetworkState, TrainPositionType
+from abfahrt.types import NetworkState, TrainPositionType, Schedule, RoundAction, PassengerGroupPositionType
 
 
 def mid(abfahrt_id):
     return int(abfahrt_id[1:])-1
 
-def aid(mip_id):
-    return 'S' + str(mip_id+1)
+
+def aid(mip_id, letter):
+    return letter + str(mip_id+1)
+
 
 class MipSolver(Solution):
     def schedule(self, network_state: NetworkState, network_graph: nx.graph):
-        max_rounds = 20
+        max_rounds = 15
         # constants
         max_line_length = max([line.length for line in network_state.lines.values()])
         stations = [mid(station_id) for station_id in network_state.stations.keys()]
@@ -37,7 +42,7 @@ class MipSolver(Solution):
         passenger_initial_positions = {mid(passenger_id): mid(passenger.position) for passenger_id, passenger in
                                        network_state.passenger_groups.items()}
         train_speeds = {mid(train_id): train.speed for train_id, train in network_state.trains.items()}
-        targets = {int(passenger_id[1:]) - 1: int(passenger.destination[1:]) - 1 for passenger_id, passenger in
+        targets = {mid(passenger_id): mid(passenger.destination) for passenger_id, passenger in
                    network_state.passenger_groups.items()}
 
         #adjacency_matrix = nx.adjacency_matrix(network_graph, weight=None)
@@ -70,8 +75,8 @@ class MipSolver(Solution):
                 if s1 == s2:
                     continue
                 for t in trains:
-                    if network_graph.has_edge(aid(s1), aid(s2)):
-                        l = mid(network_graph[aid(s1)][aid(s2)]["name"])
+                    if network_graph.has_edge(aid(s1, 'S'), aid(s2, 'S')):
+                        l = mid(network_graph[aid(s1, 'S')][aid(s2, 'S')]["name"])
                         # Line is shorter than train is fast
                         if train_speeds[t] >= line_lengths[l]:
                             m += xsum(train_position_lines[i][l][t] for i in range(max_rounds)) == 0
@@ -166,7 +171,7 @@ class MipSolver(Solution):
             for i in range(max_rounds):
                 m += xsum(passenger_position_stations[i][s][p] for s in stations) + xsum(passenger_position_trains[i][t][p] for t in trains) == 1
 
-        # Constraint: All trains are at their initial positions in the first round
+        # Constraint: All trains are at their initial positions in the first round. If no position specified, use any station
         for t in trains:
             if train_initial_positions[t] is not None:
                 m += train_position_stations[0][train_initial_positions[t]][t] == 1
@@ -202,6 +207,7 @@ class MipSolver(Solution):
         elif status == OptimizationStatus.NO_SOLUTION_FOUND:
             raise Exception("no solution found")
 
+
         for t in trains:
             for i in range(max_rounds):
                 for v in stations:
@@ -219,3 +225,54 @@ class MipSolver(Solution):
                 for t in trains:
                     if passenger_position_trains[i][t][p].x == 1:
                         print(f"{i}: P{p+1} T{t+1}")
+
+        actions = defaultdict(RoundAction)
+        current_state = deepcopy(network_state)
+        for i in range(max_rounds):
+            action = RoundAction()
+
+            if i == 0:
+                for t in trains:
+                    if network_state.trains[aid(t, 'T')].position_type == TrainPositionType.NOT_STARTED:
+                        for s in stations:
+                            if train_position_stations[i][s][t].x == 1:
+                                action.train_starts[aid(t, 'T')] = aid(s, 'S')
+            else:
+                for t in trains:
+                    current_train = current_state.trains[aid(t, 'T')]
+                    for s in stations:
+                        if train_position_stations[i][s][t].x == 1:
+                            position_type = TrainPositionType.STATION
+                            position = aid(s, 'S')
+                    for l in lines:
+                        if train_position_lines[i][l][t].x == 1:
+                            position_type = TrainPositionType.LINE
+                            position = aid(l, 'L')
+                    if current_train.position_type == TrainPositionType.STATION and current_train.position != position:
+                        if position_type == TrainPositionType.LINE:
+                            action.train_departs[current_train.name] = position
+                        elif position_type == TrainPositionType.STATION:
+                            action.train_departs[current_train.name] = network_graph[current_train.position][position]["name"]
+
+                for p in passengers:
+                    current_passenger = current_state.passenger_groups[aid(p, 'P')]
+                    for s in stations:
+                        if passenger_position_stations[i][s][p].x == 1:
+                            position_type = PassengerGroupPositionType.STATION
+                            position = aid(s, 'S')
+                    for t in trains:
+                        if passenger_position_trains[i][t][p].x == 1:
+                            position_type = PassengerGroupPositionType.TRAIN
+                            position = aid(t, 'T')
+                    if current_passenger.position_type == PassengerGroupPositionType.TRAIN and position_type == PassengerGroupPositionType.STATION:
+                        action.passenger_detrains.append(current_passenger.name)
+                    elif current_passenger.position_type == PassengerGroupPositionType.STATION and position_type == PassengerGroupPositionType.TRAIN:
+                        action.passenger_boards[current_passenger.name] = position
+
+            if not action.is_empty():
+                actions[i] = action
+            if not (i == 0 and action.is_empty()):
+                current_state.apply(action)
+            if current_state.is_finished():
+                break
+        return Schedule(actions)

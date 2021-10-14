@@ -2,8 +2,7 @@ import networkx as nx
 from networkx.algorithms import all_pairs_dijkstra
 
 from abfahrt.solution import Solution
-from abfahrt.types import NetworkState, Schedule, TrainPositionType, RoundAction, Train, PassengerGroupPositionType, \
-    PassengerGroup
+from abfahrt.types import NetworkState, Schedule, TrainPositionType, RoundAction, Train, PassengerGroup
 
 
 class SimplesSolverMultipleTrains(Solution):
@@ -167,7 +166,7 @@ class SimplesSolverMultipleTrains(Solution):
             network_state.apply(round_action)
             if not network_state.is_valid():
                 raise Exception(f"invalid state at round {round_id}")
-            if len(list(filter(lambda group: group.position_type != PassengerGroupPositionType.DESTINATION_REACHED,
+            if len(list(filter(lambda group: not group.is_destination_reached(),
                                network_state.passenger_groups.values()))) == 0:
                 break
         schedule = Schedule.from_dict(actions)
