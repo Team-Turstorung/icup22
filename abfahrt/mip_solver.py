@@ -23,6 +23,8 @@ class MipSolver(Solution):
                         network_state.passenger_groups.items()}
         train_capacities = {mid(train_id): train.capacity for train_id, train in
                        network_state.trains.items()}
+        station_capacities = {mid(station_id): station.capacity for station_id, station in
+                            network_state.stations.items()}
         train_initial_positions = {mid(train_id): mid(train.position) if train.position_type == TrainPositionType.STATION else None for train_id, train in
                                    network_state.trains.items()}
         passenger_initial_positions = {mid(passenger_id): mid(passenger.position) for passenger_id, passenger in
@@ -70,6 +72,11 @@ class MipSolver(Solution):
         for i in range(max_rounds):
             for t in trains:
                 m += xsum(group_sizes[p]*passenger_position_trains[i][t][p] for p in passengers) <= train_capacities[t]
+
+        # Constraint: Station capacities
+        for i in range(max_rounds):
+            for s in stations:
+                m += xsum(train_position[i][s][t] for t in trains) <= station_capacities[s]
 
         # Constraint: Passengers cannot change between two different stations
         for i in range(max_rounds-1):
