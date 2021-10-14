@@ -3,7 +3,7 @@ from mip import Model, xsum, minimize, BINARY, OptimizationStatus
 import networkx as nx
 
 from abfahrt.solution import Solution
-from abfahrt.types import NetworkState
+from abfahrt.types import NetworkState, TrainPositionType
 
 
 def mid(abfahrt_id):
@@ -21,7 +21,7 @@ class MipSolver(Solution):
                         network_state.passenger_groups.items()}
         group_sizes = {mid(passenger_id): passenger.group_size for passenger_id, passenger in
                         network_state.passenger_groups.items()}
-        train_initial_positions = {mid(train_id): mid(train.position) for train_id, train in
+        train_initial_positions = {mid(train_id): mid(train.position) if train.position_type == TrainPositionType.STATION else None for train_id, train in
                                    network_state.trains.items()}
         passenger_initial_positions = {mid(passenger_id): mid(passenger.position) for passenger_id, passenger in
                                        network_state.passenger_groups.items()}
@@ -99,7 +99,8 @@ class MipSolver(Solution):
 
         # Constraint: All trains are at their initial positions in the first round
         for t in trains:
-            m += train_position[0][train_initial_positions[t]][t] == 1
+            if train_initial_positions[t] is not None:
+                m += train_position[0][train_initial_positions[t]][t] == 1
 
         # Constraint: All passenger groups are at their initial positions
         for p in passengers:
