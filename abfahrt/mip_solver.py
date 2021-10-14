@@ -14,7 +14,7 @@ def aid(mip_id):
 
 class MipSolver(Solution):
     def schedule(self, network_state: NetworkState, network_graph: nx.graph):
-        max_rounds = 10
+        max_rounds = 20
         # constants
         max_line_length = max([line.length for line in network_state.lines.values()])
         stations = [mid(station_id) for station_id in network_state.stations.keys()]
@@ -170,6 +170,8 @@ class MipSolver(Solution):
         for t in trains:
             if train_initial_positions[t] is not None:
                 m += train_position_stations[0][train_initial_positions[t]][t] == 1
+            else:
+                m += xsum(train_position_stations[0][s][t] for s in stations) == 1
 
         # Constraint: All passenger groups are at their initial positions
         for p in passengers:
