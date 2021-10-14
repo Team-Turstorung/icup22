@@ -208,23 +208,23 @@ class MipSolver(Solution):
             raise Exception("no solution found")
 
 
-        for t in trains:
-            for i in range(max_rounds):
-                for v in stations:
-                    if train_position_stations[i][v][t].x == 1:
-                        print(f"{i}: T{t+1} S{v+1}")
-                for l in lines:
-                    if train_position_lines[i][l][t].x == 1:
-                        print(f"{i}: T{t+1} L{l+1} prog {train_progress[i][l][t].x}")
-        print()
-        for p in passengers:
-            for i in range(max_rounds):
-                for v in stations:
-                    if passenger_position_stations[i][v][p].x == 1:
-                        print(f"{i}: P{p+1} S{v+1}")
-                for t in trains:
-                    if passenger_position_trains[i][t][p].x == 1:
-                        print(f"{i}: P{p+1} T{t+1}")
+        #for t in trains:
+        #    for i in range(max_rounds):
+        #        for v in stations:
+        #            if train_position_stations[i][v][t].x == 1:
+        #                print(f"{i}: T{t+1} S{v+1}")
+        #        for l in lines:
+        #            if train_position_lines[i][l][t].x == 1:
+        #                print(f"{i}: T{t+1} L{l+1} prog {train_progress[i][l][t].x}")
+        #print()
+        #for p in passengers:
+        #    for i in range(max_rounds):
+        #        for v in stations:
+        #            if passenger_position_stations[i][v][p].x == 1:
+        #                print(f"{i}: P{p+1} S{v+1}")
+        #        for t in trains:
+        #            if passenger_position_trains[i][t][p].x == 1:
+        #                print(f"{i}: P{p+1} T{t+1}")
 
         actions = defaultdict(RoundAction)
         current_state = deepcopy(network_state)
