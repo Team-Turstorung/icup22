@@ -21,6 +21,8 @@ class MipSolver(Solution):
                         network_state.passenger_groups.items()}
         group_sizes = {mid(passenger_id): passenger.group_size for passenger_id, passenger in
                         network_state.passenger_groups.items()}
+        train_capacities = {mid(train_id): train.capacity for train_id, train in
+                       network_state.trains.items()}
         train_initial_positions = {mid(train_id): mid(train.position) if train.position_type == TrainPositionType.STATION else None for train_id, train in
                                    network_state.trains.items()}
         passenger_initial_positions = {mid(passenger_id): mid(passenger.position) for passenger_id, passenger in
@@ -64,6 +66,11 @@ class MipSolver(Solution):
                         m += passenger_position_trains[i][t][p] + passenger_position_stations[i + 1][s][p] <= 1 + \
                              train_position[i + 1][s][t]
 
+        # Constraint: Train capacities
+        for i in range(max_rounds):
+            for t in trains:
+                m += xsum(group_sizes[p]*passenger_position_trains[i][t][p] for p in passengers) <= train_capacities[t]
+
         # Constraint: Passengers cannot change between two different stations
         for i in range(max_rounds-1):
             for p in passengers:
@@ -105,6 +112,10 @@ class MipSolver(Solution):
         # Constraint: All passenger groups are at their initial positions
         for p in passengers:
             m += passenger_position_stations[0][passenger_initial_positions[p]][p] == 1
+
+        # Constraint: All passenger groups are at their final positions
+        for p in passengers:
+            m += passenger_position_stations[-1][targets[p]][p] == 1
 
         # Constraint: Time is updated if destination not reached
         for p in passengers:
