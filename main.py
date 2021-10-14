@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import argparse
+import os
 import threading
 from copy import deepcopy
 
@@ -17,7 +18,9 @@ SOLUTIONS = {
 }
 
 
-def solve(solver, input_file, output_file):
+def solve(solver, input_file, output_file, simulate):
+    if simulate and not output_file:
+        raise Exception("cannot simulate without an output file")
     game_state, network_graph = file_parser.parse_input_file(input_file)
     solver = SOLUTIONS[solver]()
     sched = solver.schedule(deepcopy(game_state), network_graph)
@@ -25,9 +28,14 @@ def solve(solver, input_file, output_file):
     if output_file:
         with open(output_file, 'w', encoding='utf-8') as file:
             file.write(sched.serialize())
-    else:
-        print(sched.serialize())
+    print("Schedule:")
+    print(sched.serialize())
     print("Total delay using", type(solver).__name__, "is", game_state.total_delay())
+    print()
+    if simulate:
+        print("Bahn-Simulator:")
+        os.system(f"../informatiCup2022/Bahn-Simulator/Bahn-Simulator -input {input_file} -output {output_file}")
+
 
 
 if __name__ == '__main__':
@@ -50,6 +58,7 @@ if __name__ == '__main__':
     solve_parser.add_argument('input')
     solve_parser.add_argument('output', nargs='?')
     solve_parser.add_argument('-g', '--gui', action='store_true')
+    solve_parser.add_argument('-s', '--simulate', action='store_true')
     args = parser.parse_args()
 
     if args.command == 'generate':
@@ -63,7 +72,7 @@ if __name__ == '__main__':
         print("Total delay:", state.total_delay())
     elif args.command == 'solve':
         if args.gui:
-            threading.Thread(target=lambda: solve(args.solver, args.input, args.output)).start()
+            threading.Thread(target=lambda: solve(args.solver, args.input, args.output, args.simulate)).start()
             start_gui()
         else:
-            solve(args.solver, args.input, args.output)
+            solve(args.solver, args.input, args.output, args.simulate)
