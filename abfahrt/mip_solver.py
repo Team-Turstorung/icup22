@@ -56,6 +56,7 @@ class MipSolver(Solution):
         passenger_time = [[m.add_var(var_type=INTEGER) for _ in passengers] for _ in range(max_rounds)]
         passenger_delay = [m.add_var(var_type=INTEGER) for _ in passengers] # we use the implicit lower bound of 0 for the delay
         train_progress = [[[m.add_var() for _ in trains] for _ in lines] for _ in range(max_rounds)]
+        train_destinations = [[[m.add_var(var_type=BINARY) for _ in stations] for _ in trains] for _ in range(max_rounds)]
 
         # Constraint: Set passenger delay to target time minus time elapsed
         for p in passengers:
@@ -69,6 +70,18 @@ class MipSolver(Solution):
                         continue
                     for t in trains:
                         m += train_position_lines[i][l1][t] + train_position_lines[i + 1][l2][t] <= 1
+
+        # Constraint: The train has one destination iff it is on a line
+        for i in range(max_rounds):
+            for t in trains:
+                m += xsum(train_destinations[i][t][s] for s in stations) == xsum(train_position_lines[i][l][t] for l in lines)
+
+        # Constraint: The destination cannot be last round's station. If a train has a destination, it keeps the destination or arrives at the station
+        for i in range(max_rounds-1):
+            for t in trains:
+                for s in stations:
+                    m += train_position_stations[i][s][t] + train_destinations[i+1][t][s] <= 1
+                    m += train_destinations[i][t][s] <= train_destinations[i+1][t][s] + train_position_stations[i+1][s][t]
 
         # Constraint: Trains cannot access stations or lines that are not connected to their current station or line
         for s1 in stations:
@@ -220,7 +233,10 @@ class MipSolver(Solution):
         #                print(f"{i}: T{t+1} S{v+1}")
         #        for l in lines:
         #            if train_position_lines[i][l][t].x == 1:
-        #                print(f"{i}: T{t+1} L{l+1} prog {train_progress[i][l][t].x}")
+        #                for s in stations:
+        #                    if train_destinations[i][t][s].x == 1:
+        #                        dest = s
+        #                print(f"{i}: T{t+1} L{l+1} prog {train_progress[i][l][t].x} dest {aid(dest, 'S')}")
         #print()
         #for p in passengers:
         #    for i in range(max_rounds):

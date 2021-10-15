@@ -18,3 +18,12 @@ def test_simple():
 
 def test_kapazitaet():
     create_schedule_assert_delay("examples/official/kapazität/input.txt", 0)
+
+
+def test_station_capacity():
+    # TODO: this is 50 in the example output because of a later detrain.
+    create_schedule_assert_delay("examples/official/stationCapacity/input.txt", 0)
+
+
+def test_line_forth_back():
+    create_schedule_assert_delay("examples/official/testLineForthBack/input.txt", 0)
