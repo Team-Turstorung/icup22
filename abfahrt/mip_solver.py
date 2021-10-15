@@ -24,6 +24,7 @@ class MipSolver(Solution):
         max_line_length = max([line.length for line in network_state.lines.values()])
         max_speed = max([train.speed for train in network_state.trains.values()])
         stations = [mid(station_id) for station_id in network_state.stations.keys()]
+        stations.append(len(stations)) # Pseudo station if wildcard trains are not used
         trains = [mid(train_id) for train_id in network_state.trains.keys()]
         passengers = [mid(passenger_id) for passenger_id in network_state.passenger_groups.keys()]
         lines = [mid(line_id) for line_id in network_state.lines.keys()]
@@ -36,6 +37,7 @@ class MipSolver(Solution):
                        network_state.trains.items()}
         station_capacities = {mid(station_id): station.capacity for station_id, station in
                             network_state.stations.items()}
+        station_capacities[stations[-1]] = len(trains)
         line_capacities = {mid(line_id): line.capacity for line_id, line in network_state.lines.items()}
         line_lengths = {mid(line_id): line.length for line_id, line in network_state.lines.items()}
         train_initial_positions = {mid(train_id): mid(train.position) if train.position_type == TrainPositionType.STATION else None for train_id, train in
@@ -252,7 +254,7 @@ class MipSolver(Solution):
                 for t in trains:
                     if network_state.trains[aid(t, 'T')].position_type == TrainPositionType.NOT_STARTED:
                         for s in stations:
-                            if train_position_stations[i][s][t].x == 1:
+                            if s != stations[-1] and train_position_stations[i][s][t].x == 1:
                                 action.train_starts[aid(t, 'T')] = aid(s, 'S')
             else:
                 for t in trains:

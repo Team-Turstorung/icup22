@@ -27,3 +27,7 @@ def test_station_capacity():
 
 def test_line_forth_back():
     create_schedule_assert_delay("examples/official/testLineForthBack/input.txt", 0)
+
+
+def test_custom_wildcard():
+    create_schedule_assert_delay("examples/custom/wildcard/input.txt", 3)
