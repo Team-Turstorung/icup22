@@ -22,6 +22,7 @@ class MipSolver(Solution):
         max_rounds = 15
         # constants
         max_line_length = max([line.length for line in network_state.lines.values()])
+        max_speed = max([train.speed for train in network_state.trains.values()])
         stations = [mid(station_id) for station_id in network_state.stations.keys()]
         trains = [mid(train_id) for train_id in network_state.trains.keys()]
         passengers = [mid(passenger_id) for passenger_id in network_state.passenger_groups.keys()]
@@ -102,11 +103,15 @@ class MipSolver(Solution):
                             m += train_position_stations[i][s1][t] + train_position_stations[i+1][s2][t] <= 1
                             m += train_position_stations[i+1][s1][t] + train_position_stations[i][s2][t] <= 1
 
-        # Constraint: Trains move with their speed, progress is zero when the train is not on the line, else bounded by line length
+        # Constraint: Trains ...
         for i in range(max_rounds-1):
             for l in lines:
                 for t in trains:
+                    # ... move can never travel further than their speed
                     m += train_progress[i+1][l][t] <= train_progress[i][l][t] + train_speeds[t]
+                    # ... move with at least their speed when they are on the line in the next round
+                    m += train_progress[i][l][t] + train_speeds[t] - (max_line_length+max_speed) * (1-train_position_lines[i+1][l][t]) <= train_progress[i+1][l][t]
+                    # ... can never be further on the line than the line is long. # TODO: is the <= instead of the < a problem here?
                     m += train_progress[i][l][t] <= line_lengths[l]*train_position_lines[i][l][t]
 
         # Constraint: When a passenger hops onto a train, the train must be in the corresponding station in two turns. The same is true when getting out.
