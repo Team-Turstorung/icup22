@@ -367,14 +367,14 @@ class Schedule:
                     all_passenger_actions[passenger_id] = [passenger_action]
 
         output = ""
-        for train_id, all_actions in all_train_actions.items():
+        for train_id in sorted(all_train_actions.keys(), key=lambda train_id: int(train_id[1:])):
             output += f"[Train:{train_id}]\n"
-            output += '\n'.join(all_actions)
+            output += '\n'.join(all_train_actions[train_id])
             output += '\n\n'
 
-        for passenger_id, all_actions in all_passenger_actions.items():
+        for passenger_id in sorted(all_passenger_actions.keys(), key=lambda passenger_id: int(passenger_id[1:])):
             output += f"[Passenger:{passenger_id}]\n"
-            output += '\n'.join(all_actions)
+            output += '\n'.join(all_passenger_actions[passenger_id])
             output += '\n\n'
 
         return output
