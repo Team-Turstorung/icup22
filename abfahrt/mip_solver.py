@@ -83,38 +83,34 @@ class MipSolver(Solution):
                     m += train_position_stations[i][s][t] + train_destinations[i+1][t][s] <= 1
                     m += train_destinations[i][t][s] <= train_destinations[i+1][t][s] + train_position_stations[i+1][s][t]
 
-        # Constraint: Trains cannot access stations or lines that are not connected to their current station or line
+        # Constraint: When a train is in a station, it can go to station it can reach in one round and all neighbor lines
         for s1 in stations:
-            for s2 in stations:
-                if s1 == s2:
-                    continue
-                for t in trains:
-                    if network_graph.has_edge(aid(s1, 'S'), aid(s2, 'S')):
-                        l = mid(network_graph[aid(s1, 'S')][aid(s2, 'S')]["name"])
-                        # Line is shorter than train is fast
-                        if train_speeds[t] >= line_lengths[l]:
-                            m += xsum(train_position_lines[i][l][t] for i in range(max_rounds)) == 0
-                        # Line exists but is longer than train is fast
-                        else:
-                            for i in range(max_rounds-1):
-                                # Train can never be at stations back-to-back
-                                m += train_position_stations[i][s1][t] + train_position_stations[i+1][s2][t] <= 1
-                                m += train_position_stations[i+1][s1][t] + train_position_stations[i][s2][t] <= 1
-
-                                # Train arrives at station when last round's progress plus speed is greater than length
-                                m += line_lengths[l] <= train_progress[i][l][t] + train_speeds[t] + max_line_length*(2-train_position_stations[i+1][s2][t]-train_position_stations[i+1][s1][t]-train_position_lines[i][l][t])
-
-                                # Line is not reachable via any other station
-                                for s3 in stations:
-                                    if s3 in (s1, s2):
-                                        continue
-                                    m += train_position_stations[i][s3][t] + train_position_lines[i+1][l][t] <= 1
-                                    m += train_position_stations[i+1][s3][t] + train_position_lines[i][l][t] <= 1
-                    # Line does not exist, so train cannot change positions that way
+            for t in trains:
+                possible_next_stations = [s1]
+                possible_next_lines = []
+                for s2 in stations:
+                    if not network_graph.has_edge(aid(s1, 'S'), aid(s2, 'S')):
+                        continue
+                    l = mid(network_graph[aid(s1, 'S')][aid(s2, 'S')]["name"])
+                    if train_speeds[t] >= line_lengths[l]:
+                        possible_next_stations.append(s2)
                     else:
-                        for i in range(max_rounds-1):
-                            m += train_position_stations[i][s1][t] + train_position_stations[i+1][s2][t] <= 1
-                            m += train_position_stations[i+1][s1][t] + train_position_stations[i][s2][t] <= 1
+                        possible_next_lines.append(l)
+                for i in range(max_rounds-1):
+                    m += train_position_stations[i][s1][t] <= xsum(
+                        train_position_stations[i + 1][s2][t] for s2 in possible_next_stations) + xsum(
+                        train_position_lines[i + 1][l][t] for l in possible_next_lines)
+
+        for i in range(max_rounds-1):
+            for t in trains:
+                for l in lines:
+                    s1 = mid(network_state.lines[aid(l, 'L')].start)
+                    s2 = mid(network_state.lines[aid(l, 'L')].end)
+                    # Train arrives at station when last round's progress plus speed is greater than length
+                    m += line_lengths[l] <= train_progress[i][l][t] + train_speeds[t] + max_line_length*(2-train_position_stations[i+1][s2][t]-train_position_stations[i+1][s1][t]-train_position_lines[i][l][t])
+
+                    # When on line, the train is on the line or in one of the stations in the next round
+                    m += train_position_lines[i][l][t] <= train_position_stations[i+1][s1][t] + train_position_stations[i+1][s2][t] + train_position_lines[i+1][l][t]
 
         # Constraint: Trains ...
         for i in range(max_rounds-1):
