@@ -21,8 +21,6 @@ class MipSolver(Solution):
     def schedule(self, network_state: NetworkState, network_graph: nx.graph):
         max_rounds = 15
         # constants
-        max_line_length = max([line.length for line in network_state.lines.values()])
-        max_speed = max([train.speed for train in network_state.trains.values()])
         stations = [mid(station_id) for station_id in network_state.stations.keys()]
         stations.append(len(stations)) # Pseudo station if wildcard trains are not used
         trains = [mid(train_id) for train_id in network_state.trains.keys()]
@@ -109,7 +107,7 @@ class MipSolver(Solution):
                     s1 = mid(network_state.lines[aid(l, 'L')].start)
                     s2 = mid(network_state.lines[aid(l, 'L')].end)
                     # Train arrives at station when last round's progress plus speed is greater than length
-                    m += line_lengths[l] <= train_progress[i][l][t] + train_speeds[t] + max_line_length*(2-train_position_stations[i+1][s2][t]-train_position_stations[i+1][s1][t]-train_position_lines[i][l][t])
+                    m += line_lengths[l] <= train_progress[i][l][t] + train_speeds[t] + line_lengths[l]*(2-train_position_stations[i+1][s2][t]-train_position_stations[i+1][s1][t]-train_position_lines[i][l][t])
 
                     # When on line, the train is on the line or in one of the stations in the next round
                     m += train_position_lines[i][l][t] <= train_position_stations[i+1][s1][t] + train_position_stations[i+1][s2][t] + train_position_lines[i+1][l][t]
@@ -121,7 +119,7 @@ class MipSolver(Solution):
                     # ... move can never travel further than their speed
                     m += train_progress[i+1][l][t] <= train_progress[i][l][t] + train_speeds[t]
                     # ... move with at least their speed when they are on the line in the next round
-                    m += train_progress[i][l][t] + train_speeds[t] - (max_line_length+max_speed) * (1-train_position_lines[i+1][l][t]) <= train_progress[i+1][l][t]
+                    m += train_progress[i][l][t] + train_speeds[t] - (line_lengths[l]+train_speeds[t]) * (1-train_position_lines[i+1][l][t]) <= train_progress[i+1][l][t]
                     # ... can never be further on the line than the line is long. # TODO: is the <= instead of the < a problem here?
                     m += train_progress[i][l][t] <= line_lengths[l]*train_position_lines[i][l][t]
 
