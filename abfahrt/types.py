@@ -1,7 +1,7 @@
 from collections import defaultdict
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Optional
+from typing import Optional, List, Dict
 
 
 class TrainPositionType(Enum):
@@ -36,7 +36,7 @@ class Train:
     position: Optional[str]
     next_station: Optional[str]
     line_progress: float = 0
-    passenger_groups: list[str] = field(default_factory=list, compare=False)
+    passenger_groups: List[str] = field(default_factory=list, compare=False)
 
     def is_valid(self, game_state: 'NetworkState') -> bool:
         if self.position_type not in [
@@ -77,8 +77,8 @@ class Train:
 class Station:
     name: str
     capacity: int
-    trains: list[str] = field(default_factory=list, compare=False)
-    passenger_groups: list[str] = field(default_factory=list, compare=False)
+    trains: List[str] = field(default_factory=list, compare=False)
+    passenger_groups: List[str] = field(default_factory=list, compare=False)
 
     def is_full(self) -> bool:
         return len(self.trains) == self.capacity
@@ -152,7 +152,7 @@ class Line:
     start: str  # station id
     end: str  # station id
     capacity: int
-    trains: list[str] = field(default_factory=list, compare=False)
+    trains: List[str] = field(default_factory=list, compare=False)
 
     def is_full(self) -> bool:
         return len(self.trains) == self.capacity
@@ -183,12 +183,12 @@ class Line:
 
 @dataclass()
 class NetworkState:
-    trains: dict[str, Train] = field(default_factory=dict)
-    passenger_groups: dict[str, PassengerGroup] = field(default_factory=dict)
-    stations: dict[str, Station] = field(default_factory=dict)
-    lines: dict[str, Line] = field(default_factory=dict)
+    trains: Dict[str, Train] = field(default_factory=dict)
+    passenger_groups: Dict[str, PassengerGroup] = field(default_factory=dict)
+    stations: Dict[str, Station] = field(default_factory=dict)
+    lines: Dict[str, Line] = field(default_factory=dict)
 
-    def waiting_passengers(self) -> dict[str, PassengerGroup]:
+    def waiting_passengers(self) -> Dict[str, PassengerGroup]:
         return {name: group for name, group in self.passenger_groups.items() if group.position_type == PassengerGroupPositionType.STATION}
 
     def is_valid(self) -> bool:
@@ -309,10 +309,10 @@ class NetworkState:
 
 @dataclass()
 class RoundAction:
-    train_starts: dict[str, str] = field(default_factory=dict)
-    train_departs: dict[str, str] = field(default_factory=dict)
-    passenger_boards: dict[str, str] = field(default_factory=dict)
-    passenger_detrains: list[str] = field(default_factory=list)
+    train_starts: Dict[str, str] = field(default_factory=dict)
+    train_departs: Dict[str, str] = field(default_factory=dict)
+    passenger_boards: Dict[str, str] = field(default_factory=dict)
+    passenger_detrains: List[str] = field(default_factory=list)
 
     def is_zero_round(self):
         is_zero_round = len(self.train_starts) != 0
@@ -340,7 +340,7 @@ class RoundAction:
 
 @dataclass
 class Schedule:
-    actions: defaultdict[int, RoundAction]
+    actions: Dict[int, RoundAction]
 
     @classmethod
     def from_dict(cls, dictionary):
@@ -352,7 +352,7 @@ class Schedule:
         num_rounds = max(self.actions.keys())
         start_round = 0 if self.actions[0].is_zero_round() else 1
         for i in range(start_round, num_rounds + 1):
-            current_round_action = self.actions[i]
+            current_round_action = self.actions.get(i, RoundAction())
             train_actions, passenger_actions = current_round_action.serialize(i)
             for train_id, train_action in train_actions.items():
                 if train_id in all_train_actions:

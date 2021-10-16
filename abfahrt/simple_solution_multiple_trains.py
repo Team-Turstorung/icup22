@@ -1,3 +1,5 @@
+from typing import Dict, List
+
 import networkx as nx
 from networkx.algorithms import all_pairs_dijkstra
 
@@ -8,7 +10,7 @@ from abfahrt.types import NetworkState, Schedule, TrainPositionType, RoundAction
 class SimplesSolverMultipleTrains(Solution):
     def schedule(self, network_state: NetworkState, network_graph: nx.Graph) -> Schedule:
 
-        def get_all_shortest_paths(network_graph: nx.Graph) -> dict[str, tuple]:
+        def get_all_shortest_paths(network_graph: nx.Graph) -> Dict[str, tuple]:
             shortest_paths = all_pairs_dijkstra(network_graph)
             all_shortest_paths = {}
             for path in shortest_paths:
@@ -63,7 +65,7 @@ class SimplesSolverMultipleTrains(Solution):
                         new_round_action.train_starts[current_train.name] = emptiest_station
             return new_round_action
 
-        def compute_priorities(passenger_groups: list[PassengerGroup]) -> dict[str, int]:
+        def compute_priorities(passenger_groups: List[PassengerGroup]) -> Dict[str, int]:
             priorities = dict()
             for passenger_group in passenger_groups:
                 priorities[passenger_group.name] = all_shortest_paths[passenger_group.position][0][
@@ -71,7 +73,7 @@ class SimplesSolverMultipleTrains(Solution):
                                                        passenger_group.time_remaining + 1) * passenger_group.group_size
             return priorities
 
-        def navigate_train(train: Train, path: list[str]):
+        def navigate_train(train: Train, path: List[str]):
             if train.position_type == TrainPositionType.LINE or train.name not in on_tour:
                 return
             if len(path) == 1:

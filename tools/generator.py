@@ -1,6 +1,7 @@
 import math
 import random
 import argparse
+from typing import Tuple
 
 import networkx as nx
 
@@ -55,7 +56,7 @@ def random_connected_graph(nodes, density=0):
     return graph
 
 
-def generate_stations_and_lines(**kwargs) -> tuple[NetworkState, nx.Graph]:
+def generate_stations_and_lines(**kwargs) -> Tuple[NetworkState, nx.Graph]:
     num_stations = kwargs.get('num_stations', random.randint(5, 10))
     density = kwargs.get('density', 0)
     min_station_capacity = kwargs.get('min_station_capacity', 1)
@@ -159,7 +160,7 @@ def generate_passenger_groups(state: NetworkState, graph: nx.Graph, **kwargs):
     state.passenger_groups = passengers
 
 
-def generate_game_state(**kwargs) -> tuple[NetworkState, nx.Graph]:
+def generate_game_state(**kwargs) -> Tuple[NetworkState, nx.Graph]:
     for _ in range(5):
         state, graph = generate_stations_and_lines(**kwargs)
         generate_trains(state, graph, **kwargs)
