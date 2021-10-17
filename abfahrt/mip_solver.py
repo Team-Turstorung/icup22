@@ -1,7 +1,6 @@
 import logging
 from collections import defaultdict
 from copy import deepcopy
-from typing import Optional
 
 from mip import Model, xsum, minimize, BINARY, OptimizationStatus, INTEGER
 
@@ -20,9 +19,7 @@ class MipSolver(Solution):
 
     def schedule(self, network_state: NetworkState, network_graph: nx.graph):
         max_rounds = 5
-        solved_model: Optional[Model] = None
-        solved_max_rounds: Optional[int] = None
-        solved_position_variables = None
+        solutions = {}
         while True:
             self.log.info('trying max_rounds = %s', max_rounds)
             m, position_variables = self.schedule_with_num_rounds(network_state, network_graph, max_rounds)
@@ -31,18 +28,15 @@ class MipSolver(Solution):
                     self.log.info('optimal solution cost %s found', m.objective_value)
                 else:
                     self.log.info('solution with objective value %s found, best possible: %s', m.objective_value, m.objective_bound)
-                finished = solved_model is not None or m.objective_value == 0
-                solved_model = m
-                solved_max_rounds = max_rounds
-                solved_position_variables = position_variables
-                if finished:
+                solutions[max_rounds] = (position_variables, m.objective_value)
+                if len(solutions) == 2:
                     break
             elif m.status == OptimizationStatus.INFEASIBLE:
                 self.log.info("infeasable for max_rounds = %s", max_rounds)
             elif m.status == OptimizationStatus.NO_SOLUTION_FOUND:
                 self.log.info("no solution found for max_rounds = %s", max_rounds)
             max_rounds = max_rounds * 5 // 4
-        return self.solved_model_to_schedule(network_state, network_graph, solved_max_rounds, *solved_position_variables)
+        return self.solved_model_to_schedule(network_state, network_graph, max_rounds, *solutions[max_rounds][0])
 
     def dicts_from_network(self, network_state: NetworkState):
         stations = {name: number for number, name in enumerate(network_state.stations.keys())}
