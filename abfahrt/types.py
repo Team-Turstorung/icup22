@@ -145,7 +145,7 @@ class PassengerGroup:
                 "time_remaining": self.time_remaining}
 
 
-@dataclass(unsafe_hash=True)
+@dataclass(unsafe_hash=True, order=True)
 class Line:
     name: str
     length: float
@@ -285,18 +285,19 @@ class NetworkState:
     def serialize(self) -> str:
         # Note: this only works properly on initial game states (such as ones
         # generated randomly)
+        sort_key = lambda object: int(object.name[1:])
         output = ""
         output += "[Stations]\n"
-        for station in self.stations.values():
+        for station in sorted(self.stations.values(), key=sort_key):
             output += f"{station.name} {station.capacity}\n"
         output += "\n[Lines]\n"
-        for line in self.lines.values():
+        for line in sorted(self.lines.values(), key=sort_key):
             output += f"{line.name} {line.start} {line.end} {line.length} {line.capacity}\n"
         output += "\n[Trains]\n"
-        for train in self.trains.values():
+        for train in sorted(self.trains.values(), key=sort_key):
             output += f"{train.name} {train.position if train.position_type == TrainPositionType.STATION else '*'} {train.speed} {train.capacity}\n"
         output += "\n[Passengers]\n"
-        for passenger in self.passenger_groups.values():
+        for passenger in sorted(self.passenger_groups.values(), key=sort_key):
             output += f"{passenger.name} {passenger.position} {passenger.destination} {passenger.group_size} {passenger.time_remaining}\n"
         return output
 
