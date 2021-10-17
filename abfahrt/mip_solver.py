@@ -1,7 +1,7 @@
 import logging
-import time
 from collections import defaultdict
 from copy import deepcopy
+from typing import Optional
 
 from mip import Model, xsum, minimize, BINARY, OptimizationStatus, INTEGER
 
@@ -10,37 +10,57 @@ import networkx as nx
 from abfahrt.solution import Solution
 from abfahrt.types import NetworkState, TrainPositionType, Schedule, RoundAction, PassengerGroupPositionType
 
-from abfahrt.simple_solution_multiple_trains import SimplesSolverMultipleTrains
+PSEUDO_STATION_NAME = "pseudo"
 
 
 class MipSolver(Solution):
-    def schedule(self, network_state: NetworkState, network_graph: nx.graph):
-        log = logging.getLogger(__name__)
-        log.setLevel(logging.INFO)
+    def __init__(self):
+        self.log = logging.getLogger(__name__)
+        self.log.setLevel(logging.INFO)
 
-        # constants
+    def schedule(self, network_state: NetworkState, network_graph: nx.graph):
+        max_rounds = 5
+        solved_model: Optional[Model] = None
+        solved_max_rounds: Optional[int] = None
+        solved_position_variables = None
+        while True:
+            self.log.info('trying max_rounds = %s', max_rounds)
+            m, position_variables = self.schedule_with_num_rounds(network_state, network_graph, max_rounds)
+            if m.status == OptimizationStatus.OPTIMAL or m.status == OptimizationStatus.FEASIBLE:
+                if m.status == OptimizationStatus.OPTIMAL:
+                    self.log.info('optimal solution cost %s found', m.objective_value)
+                else:
+                    self.log.info('solution with objective value %s found, best possible: %s', m.objective_value, m.objective_bound)
+                finished = solved_model is not None or m.objective_value == 0
+                solved_model = m
+                solved_max_rounds = max_rounds
+                solved_position_variables = position_variables
+                if finished:
+                    break
+            elif m.status == OptimizationStatus.INFEASIBLE:
+                self.log.info("infeasable for max_rounds = %s", max_rounds)
+            elif m.status == OptimizationStatus.NO_SOLUTION_FOUND:
+                self.log.info("no solution found for max_rounds = %s", max_rounds)
+            max_rounds = max_rounds * 5 // 4
+        return self.solved_model_to_schedule(network_state, network_graph, solved_max_rounds, *solved_position_variables)
+
+    def dicts_from_network(self, network_state: NetworkState):
         stations = {name: number for number, name in enumerate(network_state.stations.keys())}
-        pseudo_id = 0
-        if "pseudo" not in stations:
-            pseudo_id = max(stations.values()) + 1
-            stations["pseudo"] = pseudo_id
+        if PSEUDO_STATION_NAME not in stations:
+            stations[PSEUDO_STATION_NAME] = max(stations.values()) + 1
         else:
             raise Exception("Please rename your pseudo station")
-
-        log.info("Running SimpleSolverMultipleTrains")
-        simple_solver = SimplesSolverMultipleTrains()
-        initial_schedule = simple_solver.schedule(deepcopy(network_state), network_graph)
-        max_rounds = round(1.2 * len(initial_schedule.actions))
         passengers = {name: number for number, name in enumerate(network_state.passenger_groups.keys())}
         trains = {name: number for number, name in enumerate(network_state.trains.keys())}
         lines = {name: number for number, name in enumerate(network_state.lines.keys())}
-
-        log.info("max_rounds = %s", max_rounds)
-
         reverse_trains = {number: name for name, number in trains.items()}
         reverse_stations = {number: name for name, number in stations.items()}
         reverse_lines = {number: name for name, number in lines.items()}
         reverse_passengers = {number: name for name, number in passengers.items()}
+        return stations, lines, trains, passengers, reverse_stations, reverse_lines, reverse_trains, reverse_passengers
+
+    def schedule_with_num_rounds(self, network_state: NetworkState, network_graph: nx.graph, max_rounds: int):
+        stations, lines, trains, passengers, reverse_stations, reverse_lines, _, _ = self.dicts_from_network(network_state)
 
         target_times = {passengers[passenger_id]: passenger.time_remaining for passenger_id, passenger in
                         network_state.passenger_groups.items()}
@@ -50,7 +70,7 @@ class MipSolver(Solution):
                        network_state.trains.items()}
         station_capacities = {stations[station_id]: station.capacity for station_id, station in
                             network_state.stations.items()}
-        station_capacities[pseudo_id] = len(trains)
+        station_capacities[stations[PSEUDO_STATION_NAME]] = len(trains)
         line_capacities = {lines[line_id]: line.capacity for line_id, line in network_state.lines.items()}
         line_lengths = {lines[line_id]: line.length for line_id, line in network_state.lines.items()}
         train_initial_positions = {trains[train_id]: stations[train.position] if train.position_type == TrainPositionType.STATION else None for train_id, train in
@@ -242,61 +262,12 @@ class MipSolver(Solution):
             passenger_delay[p] for p in passengers.values()
         ))
 
-        log.info('%s vars, %s constraints and %s nzs', m.num_cols, m.num_rows, m.num_nz)
+        self.log.info('%s vars, %s constraints and %s nzs', m.num_cols, m.num_rows, m.num_nz)
+        m.optimize()
+        return m, (train_position_stations, train_position_lines, passenger_position_stations, passenger_position_trains)
 
-        # Include simple feasible solution
-        start = []
-        current_state = deepcopy(network_state)
-        for round_id, action in initial_schedule.actions.items():
-            round_id += 1
-            current_state.apply(action)
-            for train in current_state.trains.values():
-                if train.position_type == TrainPositionType.STATION:
-                    start.append((train_position_stations[round_id][stations[train.position]][trains[train.name]], 1))
-                if train.position_type == TrainPositionType.LINE:
-                    start.append((train_position_lines[round_id][lines[train.position]][trains[train.name]], 1))
-                    start.append((train_destinations[round_id][trains[train.name]][stations[train.next_station]], 1))
-                if train.position_type == TrainPositionType.NOT_STARTED:
-                    start.append((train_position_stations[round_id][stations["pseudo"]][trains[train.name]]))
-
-            for passenger in current_state.passenger_groups.values():
-                if passenger.position_type == PassengerGroupPositionType.STATION:
-                    start.append((passenger_position_stations[round_id][stations[passenger.position]][passengers[passenger.name]], 1))
-                if passenger.position_type == PassengerGroupPositionType.TRAIN:
-                    start.append((passenger_position_trains[round_id][trains[passenger.position]][passengers[passenger.name]],1))
-
-        m.start = start
-        status = m.optimize()
-        if status == OptimizationStatus.OPTIMAL:
-            log.info('optimal solution cost %s found', m.objective_value)
-        elif status == OptimizationStatus.FEASIBLE:
-            log.info('sol.cost %s found, best possible: %s', m.objective_value, m.objective_bound)
-        elif status == OptimizationStatus.INFEASIBLE:
-            raise Exception("model infeasable")
-        elif status == OptimizationStatus.NO_SOLUTION_FOUND:
-            raise Exception("no solution found")
-
-
-        #for t in trains:
-        #    for i in range(max_rounds):
-        #        for v in stations:
-        #            if train_position_stations[i][v][t].x == 1:
-        #                print(f"{i}: T{t+1} S{v+1}")
-        #        for l in lines:
-        #            if train_position_lines[i][l][t].x == 1:
-        #                for s in stations:
-        #                    if train_destinations[i][t][s].x == 1:
-        #                        dest = s
-        #                print(f"{i}: T{t+1} L{l+1} prog {train_progress[i][l][t].x} dest {aid(dest, 'S')}")
-        #print()
-        #for p in passengers:
-        #    for i in range(max_rounds):
-        #        for v in stations:
-        #            if passenger_position_stations[i][v][p].x == 1:
-        #                print(f"{i}: P{p+1} S{v+1}")
-        #        for t in trains:
-        #            if passenger_position_trains[i][t][p].x == 1:
-        #                print(f"{i}: P{p+1} T{t+1}")
+    def solved_model_to_schedule(self, network_state: NetworkState, network_graph: nx.graph, max_rounds: int, train_position_stations, train_position_lines, passenger_position_stations, passenger_position_trains):
+        stations, lines, trains, passengers, reverse_stations, reverse_lines, reverse_trains, reverse_passengers = self.dicts_from_network(network_state)
         actions = defaultdict(RoundAction)
         current_state = deepcopy(network_state)
         for i in range(max_rounds):
@@ -306,7 +277,7 @@ class MipSolver(Solution):
                 for t in trains.values():
                     if network_state.trains[reverse_trains[t]].position_type == TrainPositionType.NOT_STARTED:
                         for s in stations.values():
-                            if s != pseudo_id and train_position_stations[i][s][t].x == 1:
+                            if s != stations[PSEUDO_STATION_NAME] and train_position_stations[i][s][t].x == 1:
                                 action.train_starts[reverse_trains[t]] = reverse_stations[s]
             else:
                 for t in trains.values():
