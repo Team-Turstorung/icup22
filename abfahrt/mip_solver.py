@@ -1,3 +1,5 @@
+import logging
+import time
 from collections import defaultdict
 from copy import deepcopy
 
@@ -13,7 +15,9 @@ from abfahrt.simple_solution_multiple_trains import SimplesSolverMultipleTrains
 
 class MipSolver(Solution):
     def schedule(self, network_state: NetworkState, network_graph: nx.graph):
-        max_rounds = 15
+        log = logging.getLogger(__name__)
+        log.setLevel(logging.INFO)
+
         # constants
         stations = {name: number for number, name in enumerate(network_state.stations.keys())}
         pseudo_id = 0
@@ -23,12 +27,15 @@ class MipSolver(Solution):
         else:
             raise Exception("Please rename your pseudo station")
 
+        log.info("Running SimpleSolverMultipleTrains")
         simple_solver = SimplesSolverMultipleTrains()
         initial_schedule = simple_solver.schedule(deepcopy(network_state), network_graph)
         max_rounds = round(1.2 * len(initial_schedule.actions))
         passengers = {name: number for number, name in enumerate(network_state.passenger_groups.keys())}
         trains = {name: number for number, name in enumerate(network_state.trains.keys())}
         lines = {name: number for number, name in enumerate(network_state.lines.keys())}
+
+        log.info("max_rounds = %s", max_rounds)
 
         reverse_trains = {number: name for name, number in trains.items()}
         reverse_stations = {number: name for name, number in stations.items()}
@@ -235,7 +242,7 @@ class MipSolver(Solution):
             passenger_delay[p] for p in passengers.values()
         ))
 
-        print(f'model has {m.num_cols} vars, {m.num_rows} constraints and {m.num_nz} nzs')
+        log.info('%s vars, %s constraints and %s nzs', m.num_cols, m.num_rows, m.num_nz)
 
         # Include simple feasible solution
         start = []
@@ -261,9 +268,9 @@ class MipSolver(Solution):
         m.start = start
         status = m.optimize()
         if status == OptimizationStatus.OPTIMAL:
-            print(f'optimal solution cost {m.objective_value} found')
+            log.info('optimal solution cost %s found', m.objective_value)
         elif status == OptimizationStatus.FEASIBLE:
-            print(f'sol.cost {m.objective_value} found, best possible: {m.objective_bound}')
+            log.info('sol.cost %s found, best possible: %s', m.objective_value, m.objective_bound)
         elif status == OptimizationStatus.INFEASIBLE:
             raise Exception("model infeasable")
         elif status == OptimizationStatus.NO_SOLUTION_FOUND:

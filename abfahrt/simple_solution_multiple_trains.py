@@ -1,3 +1,4 @@
+import logging
 from typing import Dict, List
 from itertools import combinations
 
@@ -10,6 +11,9 @@ from abfahrt.types import NetworkState, Schedule, TrainPositionType, RoundAction
 
 class SimplesSolverMultipleTrains(Solution):
     def schedule(self, network_state: NetworkState, network_graph: nx.Graph) -> Schedule:
+
+        log = logging.getLogger(__name__)
+        log.setLevel(logging.INFO)
 
         def get_all_shortest_paths(network_graph: nx.Graph) -> Dict[str, tuple]:
             shortest_paths = all_pairs_dijkstra(network_graph)

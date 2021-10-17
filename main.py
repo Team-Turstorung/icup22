@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 import argparse
+import logging
 import os
 import threading
 from copy import deepcopy
-
 from abfahrt.simple_solution import SimpleSolver
 from abfahrt.simple_solution_multiple_trains import SimplesSolverMultipleTrains
 from abfahrt.mip_solver import MipSolver
@@ -37,8 +37,8 @@ def solve(solver, input_file, output_file, simulate):
         os.system(f"../informatiCup2022/Bahn-Simulator/Bahn-Simulator -input {input_file} -output {output_file}")
 
 
-
 if __name__ == '__main__':
+    logging.basicConfig(level=logging.DEBUG)
     parser = argparse.ArgumentParser()
     subparsers = parser.add_subparsers(dest='command')
 

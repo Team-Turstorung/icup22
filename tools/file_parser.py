@@ -34,11 +34,11 @@ def parse_input_text(text: str) -> [NetworkState, nx.Graph]:
         mode, changed = get_input_mode(line.lower(), mode)
         if not (line.startswith('#') or line == '' or changed):
             if mode == "unknown":
-                print("Missing Definiton")
+                raise Exception(f"missing definition while parsing line \"{line}\"")
             elif mode == "StationMode":
                 line_list = line.split()
                 if len(line_list) != 2:
-                    print("Invalid station")
+                    raise Exception("invalid station while parsing line \"{line}\"")
 
                 station_name = line_list[0]
                 capacity = int(line_list[1])
@@ -48,7 +48,7 @@ def parse_input_text(text: str) -> [NetworkState, nx.Graph]:
             elif mode == "LineMode":
                 line_list = line.split()
                 if len(line_list) != 5:
-                    print("Invalid Line")
+                    raise Exception("invalid line while parsing line \"{line}\"")
 
                 line_name = line_list[0]
                 length = float(line_list[3])
@@ -70,7 +70,7 @@ def parse_input_text(text: str) -> [NetworkState, nx.Graph]:
             elif mode == "TrainMode":
                 line_list = line.split()
                 if len(line_list) != 4:
-                    print("Invalid Train")
+                    raise Exception("invalid train while parsing line \"{line}\"")
                 train_name = line_list[0]
                 position = line_list[1]
                 train_capacity = int(line_list[3])
@@ -99,7 +99,7 @@ def parse_input_text(text: str) -> [NetworkState, nx.Graph]:
             elif mode == "PassengerMode":
                 line_list = line.split()
                 if len(line_list) != 5:
-                    print("Invalid Passenger")
+                    raise Exception("invalid passenger group while parsing line \"{line}\"")
                 passenger_group_name = line_list[0]
                 position = line_list[1]
                 destination = line_list[2]
