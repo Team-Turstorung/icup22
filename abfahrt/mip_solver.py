@@ -29,13 +29,13 @@ class MipSolver(Solution):
                 else:
                     self.log.info('solution with objective value %s found, best possible: %s', m.objective_value, m.objective_bound)
                 solutions[max_rounds] = (position_variables, m.objective_value)
-                if len(solutions) == 3:
+                if len(solutions) == 3 or m.objective_value == 0:
                     break
             elif m.status == OptimizationStatus.INFEASIBLE:
                 self.log.info("infeasable for max_rounds = %s", max_rounds)
             elif m.status == OptimizationStatus.NO_SOLUTION_FOUND:
                 self.log.info("no solution found for max_rounds = %s", max_rounds)
-            max_rounds = max_rounds * 5 // 4
+            max_rounds = max_rounds * 4 // 3
         return self.solved_model_to_schedule(network_state, network_graph, max_rounds, *solutions[max_rounds][0])
 
     def dicts_from_network(self, network_state: NetworkState):
