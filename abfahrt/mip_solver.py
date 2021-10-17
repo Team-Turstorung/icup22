@@ -221,11 +221,11 @@ class MipSolver(Solution):
             for i in range(max_rounds-1):
                 m += passenger_position_stations[i+1][targets[p]][p] - passenger_position_stations[i][targets[p]][p] >= 0
 
-        # Constraint: Trains do not move out of stations after all passengers reached their destinations (optimization)
-        for i in range(max_rounds-1):
-            for t in trains.values():
-                for s in stations.values():
-                    m += train_position_stations[i][s][t]-train_position_stations[i+1][s][t] <= xsum(1-passenger_position_stations[i][targets[p]][p] for p in passengers.values())
+        ## Constraint: Trains do not move out of stations after all passengers reached their destinations (optimization) TODO: benchmark, think about possible station capacity violations
+        #for i in range(max_rounds-1):
+        #    for t in trains.values():
+        #        for s in stations.values():
+        #            m += train_position_stations[i][s][t]-train_position_stations[i+1][s][t] <= xsum(1-passenger_position_stations[i][targets[p]][p] for p in passengers.values())
 
         # Constraint: All trains are at one position at a time
         for t in trains.values():
