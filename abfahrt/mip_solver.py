@@ -22,14 +22,14 @@ class MipSolver(Solution):
         solutions = {}
         while True:
             self.log.info('trying max_rounds = %s', max_rounds)
-            m, position_variables = self.schedule_with_num_rounds(network_state, network_graph, max_rounds)
+            m, position_variables = self.schedule_with_num_rounds(network_state, network_graph, max_rounds, solutions.get(max(solutions))[0] if len(solutions) != 0 else None)
             if m.status == OptimizationStatus.OPTIMAL or m.status == OptimizationStatus.FEASIBLE:
                 if m.status == OptimizationStatus.OPTIMAL:
                     self.log.info('optimal solution cost %s found', m.objective_value)
                 else:
                     self.log.info('solution with objective value %s found, best possible: %s', m.objective_value, m.objective_bound)
                 solutions[max_rounds] = (position_variables, m.objective_value)
-                if len(solutions) == 2:
+                if len(solutions) == 3:
                     break
             elif m.status == OptimizationStatus.INFEASIBLE:
                 self.log.info("infeasable for max_rounds = %s", max_rounds)
@@ -53,7 +53,7 @@ class MipSolver(Solution):
         reverse_passengers = {number: name for name, number in passengers.items()}
         return stations, lines, trains, passengers, reverse_stations, reverse_lines, reverse_trains, reverse_passengers
 
-    def schedule_with_num_rounds(self, network_state: NetworkState, network_graph: nx.graph, max_rounds: int):
+    def schedule_with_num_rounds(self, network_state: NetworkState, network_graph: nx.graph, max_rounds: int, feasable_solution):
         stations, lines, trains, passengers, reverse_stations, reverse_lines, _, _ = self.dicts_from_network(network_state)
 
         target_times = {passengers[passenger_id]: passenger.time_remaining for passenger_id, passenger in
@@ -221,6 +221,12 @@ class MipSolver(Solution):
             for i in range(max_rounds-1):
                 m += passenger_position_stations[i+1][targets[p]][p] - passenger_position_stations[i][targets[p]][p] >= 0
 
+        # Constraint: Trains do not move out of stations after all passengers reached their destinations (optimization)
+        for i in range(max_rounds-1):
+            for t in trains.values():
+                for s in stations.values():
+                    m += train_position_stations[i][s][t]-train_position_stations[i+1][s][t] <= xsum(1-passenger_position_stations[i][targets[p]][p] for p in passengers.values())
+
         # Constraint: All trains are at one position at a time
         for t in trains.values():
             for i in range(max_rounds):
@@ -250,6 +256,22 @@ class MipSolver(Solution):
         for p in passengers.values():
             for i in range(max_rounds-1):
                 m += passenger_time[i+1][p] == (passenger_time[i][p] + 1 - passenger_position_stations[i][targets[p]][p])
+
+        start = []
+        if feasable_solution is not None:
+            old_max_rounds = len(feasable_solution[0])
+            for i in range(old_max_rounds):
+                for t in trains.values():
+                    for s in stations.values():
+                        start.append((train_position_stations[i][s][t], feasable_solution[0][i][s][t]))
+                    for l in lines.values():
+                        start.append((train_position_lines[i][l][t], feasable_solution[1][i][l][t]))
+                    for p in passengers.values():
+                        start.append((passenger_position_trains[i][t][p], feasable_solution[3][i][t][p]))
+                for p in passengers.values():
+                    for s in stations.values():
+                        start.append((passenger_position_stations[i][s][p], feasable_solution[2][i][s][p]))
+        m.start = start
 
         # Constraint: Calculate passenger delay
         m.objective = minimize(xsum(
