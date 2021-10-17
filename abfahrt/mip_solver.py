@@ -21,7 +21,7 @@ class MipSolver(Solution):
             pseudo_id = max(stations.values()) + 1
             stations["pseudo"] = pseudo_id
         else:
-            raise "Please rename your pseudo station"
+            raise Exception("Please rename your pseudo station")
 
         simple_solver = SimplesSolverMultipleTrains()
         initial_schedule = simple_solver.schedule(deepcopy(network_state), network_graph)
