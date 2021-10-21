@@ -215,7 +215,7 @@ class NetworkState:
                 train = self.trains[train_id]
                 station = self.stations[action.train_starts[train_id]]
                 if train.position_type != TrainPositionType.NOT_STARTED or train.position is not None:
-                    raise Exception("cannot start train that has been started")
+                    raise Exception(f"cannot start train that has been started. Train: {train.name}")
                 train.position = station.name
                 train.position_type = TrainPositionType.STATION
                 station.trains.append(train.name)
@@ -228,7 +228,7 @@ class NetworkState:
         for train_id in action.train_departs:
             train = self.trains[train_id]
             if train.position_type != TrainPositionType.STATION:
-                raise Exception("Cannot depart train that is not in station")
+                raise Exception(f"Cannot depart train that is not in station. Train: {train.name}")
             line = self.lines[action.train_departs[train_id]]
             station = self.stations[train.position]
 
@@ -242,7 +242,7 @@ class NetworkState:
             train = self.trains[passenger_group.position]
             if passenger_group.position_type != PassengerGroupPositionType.TRAIN or train.position_type != TrainPositionType.STATION:
                 raise Exception(
-                    "passenger group must be in a train that is in a station to detrain")
+                    f"passenger group must be in a train that is in a station to detrain. Group: {passenger_group.name} Train: {train.name}")
             station = self.stations[train.position]
 
             train.passenger_groups.remove(passenger_group.name)
@@ -254,7 +254,7 @@ class NetworkState:
             train = self.trains[action.passenger_boards[passenger_group_id]]
             if train.position_type != TrainPositionType.STATION or passenger_group.position_type != PassengerGroupPositionType.STATION or passenger_group.position != train.position:
                 raise Exception(
-                    "passenger group and train must be at the same station to board")
+                    f"passenger group and train must be at the same station to board. Group: {passenger_group.name} Train: {train.name}")
             station = self.stations[passenger_group.position]
 
             passenger_group.position_type = PassengerGroupPositionType.TRAIN
