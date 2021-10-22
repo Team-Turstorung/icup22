@@ -23,11 +23,11 @@ class StationStateType(enum.Enum):
     def __str__(self):
         return self.name
 
-@dataclass
+@dataclass(unsafe_hash=True)
 class MultiTrain(Train):
-    path: List[str] = field(default_factory=list)
+    path: List[str] = field(default_factory=list, compare=False)
     reserved_capacity: int = 0
-    assigned_passenger_groups: Set[str] = field(default_factory=set)
+    assigned_passenger_groups: Set[str] = field(default_factory=set, compare=False)
     station_state: StationStateType = StationStateType.UNUSED
 
 @dataclass
@@ -300,6 +300,26 @@ class SimplesSolverMultipleTrains(Solution):
                     train2.station_state = StationStateType.LEAVING
                     processed.add(train1.name)
                     processed.add(train2.name)
+
+            leaving_trains = {train for train in network_state.trains.values() if train.station_state == StationStateType.LEAVING}
+            while len(leaving_trains) != 0:
+                leaving_train = leaving_trains.pop()
+                for blocked_train in [train for train in network_state.trains.values() if train.station_state == StationStateType.BLOCKED]:
+                    if blocked_train.path[1] == leaving_train.position:
+                        next_line_id = network_graph.edges[blocked_train.position, leaving_train.position]['name']
+                        next_line = network_state.lines[next_line_id]
+                        if blocked_train.speed >= next_line.length:
+                            pass
+                        elif next_line.reserved_capacity + len(next_line.trains) < next_line.capacity:
+                            next_line.reserved_capacity += 1
+                        else:
+                            continue
+                        blocked_train.station_state = StationStateType.LEAVING
+                        blocked_train.path = blocked_train.path[1:]
+                        round_action.train_departs[blocked_train.name] = next_line_id
+                        network_state.stations[leaving_train.position].locks.add(blocked_train.name)
+                        leaving_trains.add(blocked_train)
+                        break
 
             actions[round_id] = round_action
             network_state.apply(round_action)
