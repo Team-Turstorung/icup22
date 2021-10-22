@@ -296,6 +296,8 @@ class SimplesSolverMultipleTrains(Solution):
                     round_action.train_departs[train2.name] = next_line_id
                     train1.path = train1.path[1:]
                     train2.path = train2.path[1:]
+                    train1.station_state = StationStateType.LEAVING
+                    train2.station_state = StationStateType.LEAVING
                     processed.add(train1.name)
                     processed.add(train2.name)
 
