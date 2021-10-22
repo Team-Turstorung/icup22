@@ -138,6 +138,7 @@ class SimplesSolverMultipleTrains(Solution):
             # We have to pause cause we need a new destination first TODO: Look for new destination if we don't board or detrain
             pause_train = True
             # If there is reserved capacity we want to pickup a new passenger
+            train.on_tour = False
             if train.reserved_capacity != 0:
                 passenger_groups = [network_state.passenger_groups[passenger_group_id] for passenger_group_id in network_state.stations[train.position].passenger_groups]
                 if len(passenger_groups) > 0:
@@ -146,8 +147,9 @@ class SimplesSolverMultipleTrains(Solution):
                             train.assigned_passenger_groups.remove(passenger_group.name)
                             passenger_group.is_assigned = False
                             round_action.passenger_boards[passenger_group.name] = train.name
+                            train.path = all_shortest_paths[train.position][1][passenger_group.destination]
+                            train.on_tour = True
                             break
-            train.on_tour = False
 
         current_station = network_state.stations[train.position]
         # Check if we can take a new passenger with us
