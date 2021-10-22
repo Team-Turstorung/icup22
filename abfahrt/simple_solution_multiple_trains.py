@@ -280,17 +280,24 @@ class SimplesSolverMultipleTrains(Solution):
                 if len(common_path) == 2:
                     next_line_id = network_graph.edges[train1.position, train1.path[1]]['name']
                     next_line = network_state.lines[next_line_id]
-                    if ((next_line.reserved_capacity + len(next_line.trains) - next_line.capacity) < 0 and (next_line.length <= train1.speed or next_line.length <= train2.speed)) or ((next_line.reserved_capacity + len(next_line.trains) - next_line.capacity) < -1) or (next_line.length <= train1.speed and next_line.length <= train2.speed):
-                        network_state.stations[train1.position].locks.add(train2.name)
-                        network_state.stations[train2.position].locks.add(train1.name)
-                        # TODO: differentiate between possible cases
+                    if next_line.length <= train1.speed and next_line.length <= train2.speed:
+                        pass
+                    elif (next_line.length > train1.speed and next_line.length <= train2.speed) or (next_line.length <= train1.speed and next_line.length > train2.speed):
+                        if next_line.reserved_capacity + len(next_line.trains) - next_line.capacity >= 0:
+                            continue
+                        next_line.reserved_capacity += 1
+                    else:
+                        if next_line.reserved_capacity + len(next_line.trains) - next_line.capacity > -2:
+                            continue
                         next_line.reserved_capacity += 2
-                        round_action.train_departs[train1.name] = next_line_id
-                        round_action.train_departs[train2.name] = next_line_id
-                        train1.path = train1.path[1:]
-                        train2.path = train2.path[1:]
-                        processed.add(train1.name)
-                        processed.add(train2.name)
+                    network_state.stations[train1.position].locks.add(train2.name)
+                    network_state.stations[train2.position].locks.add(train1.name)
+                    round_action.train_departs[train1.name] = next_line_id
+                    round_action.train_departs[train2.name] = next_line_id
+                    train1.path = train1.path[1:]
+                    train2.path = train2.path[1:]
+                    processed.add(train1.name)
+                    processed.add(train2.name)
 
             actions[round_id] = round_action
             network_state.apply(round_action)

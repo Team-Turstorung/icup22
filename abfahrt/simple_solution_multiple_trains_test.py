@@ -35,3 +35,7 @@ def test_custom_mip2():
 def test_custom_mip3():
     # TODO optimally, this is 24
     create_schedule_assert_delay(SimplesSolverMultipleTrains, "examples/custom/mip_test3.txt", 431)
+
+
+def test_custom_swap():
+    create_schedule_assert_delay(SimplesSolverMultipleTrains, "examples/custom/swap.txt", 4)
