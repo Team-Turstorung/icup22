@@ -1,4 +1,5 @@
 from dataclasses import field, dataclass, asdict
+import enum
 import logging
 from typing import Dict, List, Set, Tuple
 from itertools import combinations
@@ -7,18 +8,27 @@ import networkx as nx
 from networkx.algorithms import all_pairs_dijkstra
 
 from abfahrt.solution import Solution
-from abfahrt.types import NetworkState, Schedule, TrainPositionType, RoundAction, Train, PassengerGroup, Station, Line, \
-    PassengerGroupPositionType
+from abfahrt.types import NetworkState, Schedule, TrainPositionType, RoundAction, Train, PassengerGroup, Station, Line, PassengerGroupPositionType
 
+
+class StationStateType(enum.Enum):
+    BOARDING = 0
+    BLOCKED = 1
+    LEAVING = 2
+    UNUSED = 3
+
+    def __repr__(self):
+        return self.name
+
+    def __str__(self):
+        return self.name
 
 @dataclass
 class MultiTrain(Train):
-    on_tour: bool = False
     path: List[str] = field(default_factory=list)
     reserved_capacity: int = 0
     assigned_passenger_groups: Set[str] = field(default_factory=set)
-    is_blocked: bool = False
-
+    station_state: StationStateType = StationStateType.UNUSED
 
 @dataclass
 class MultiLine(Line):
@@ -122,23 +132,22 @@ class SimplesSolverMultipleTrains(Solution):
                                                    passenger_group.time_remaining + 1) * passenger_group.group_size
 
     def navigate_train(self, network_state: MultiNetworkState, network_graph: nx.Graph, all_shortest_paths: Dict[str, Tuple], train: MultiTrain, round_action: RoundAction):
-        if train.position_type == TrainPositionType.LINE or not train.on_tour:
+        if train.position_type == TrainPositionType.LINE or not train.path:
             return
         # Check if there is a passenger detrained
-        pause_train = False
         for passenger_group_name in train.passenger_groups:
             passenger_group = network_state.passenger_groups[passenger_group_name]
             if passenger_group.destination == train.position or all_shortest_paths[train.position][1][passenger_group.destination][0:2] != train.path[0:2]:
                 round_action.passenger_detrains.append(passenger_group.name)
-                pause_train = True
+                train.station_state = StationStateType.BOARDING
 
         network_state.stations[train.position].locks.discard(train.name)
         # We reached our current destination
         if len(train.path) == 1:
             # We have to pause cause we need a new destination first TODO: Look for new destination if we don't board or detrain
-            pause_train = True
+            train.station_state = StationStateType.BOARDING
             # If there is reserved capacity we want to pickup a new passenger
-            train.on_tour = False
+            train.path = []
             if train.reserved_capacity != 0:
                 passenger_groups = [network_state.passenger_groups[passenger_group_id] for passenger_group_id in network_state.stations[train.position].passenger_groups]
                 if len(passenger_groups) > 0:
@@ -148,7 +157,6 @@ class SimplesSolverMultipleTrains(Solution):
                             passenger_group.is_assigned = False
                             round_action.passenger_boards[passenger_group.name] = train.name
                             train.path = all_shortest_paths[train.position][1][passenger_group.destination]
-                            train.on_tour = True
                             break
 
         current_station = network_state.stations[train.position]
@@ -163,10 +171,10 @@ class SimplesSolverMultipleTrains(Solution):
                         # Because we board a new passenger we can't go on this round
                         if new_passenger_group.name in round_action.passenger_boards:
                             continue
-                        pause_train = True
+                        train.station_state = StationStateType.BOARDING
                         round_action.passenger_boards[new_passenger_group.name] = train.name
                         free_capacity -= new_passenger_group.group_size
-        if pause_train:
+        if train.station_state == StationStateType.BOARDING:
             return
 
         # go to next station in path
@@ -179,8 +187,9 @@ class SimplesSolverMultipleTrains(Solution):
                 next_station.locks.add(train.name)
                 round_action.train_departs[train.name] = next_line_id
                 train.path = train.path[1:]
+                train.station_state = StationStateType.LEAVING
             else:
-                train.is_blocked = True
+                train.station_state = StationStateType.BLOCKED
 
     def calculate_free_capacity(self, network_state: MultiNetworkState, train: MultiTrain) -> int:
         # Get the capacity that is left on a train, to decide if we want new passengers.
@@ -245,15 +254,14 @@ class SimplesSolverMultipleTrains(Solution):
             for line in network_state.lines.values():
                 line.reserved_capacity = 0
             for train in network_state.trains.values():
-                train.is_blocked = False
+                train.station_state = StationStateType.UNUSED
             round_action = RoundAction()
             round_id += 1
             for train in sorted(network_state.trains.values(), key=lambda train: train.speed, reverse=True):
-                if train.on_tour:
+                if not train.path:
                     continue
                 path = self.plan_train(network_state, network_graph, all_shortest_paths, train)
                 if path is not None:
-                    train.on_tour = True
                     train.path = path
 
             for train in sorted(network_state.trains.values(), key=lambda train: train.speed, reverse=True):
@@ -261,7 +269,7 @@ class SimplesSolverMultipleTrains(Solution):
                     self.navigate_train(network_state, network_graph, all_shortest_paths, train, round_action)
 
             processed = set()
-            for pair in combinations([train.name for train in network_state.trains.values() if train.is_blocked], 2):
+            for pair in combinations([train.name for train in network_state.trains.values() if train.station_state == StationStateType.BLOCKED], 2):
                 train1 = network_state.trains[pair[0]]
                 train2 = network_state.trains[pair[1]]
                 if train1.position == train2.position or train1.name in processed or train2.name in processed:
