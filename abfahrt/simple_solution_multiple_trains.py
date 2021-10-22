@@ -158,9 +158,9 @@ class SimplesSolverMultipleTrains(Solution):
                 # Check if there is no other train that wants the passenger, there is enough space and it is the right direction
                 if not new_passenger_group.is_assigned and free_capacity >= new_passenger_group.group_size and not new_passenger_group.is_destination_reached():
                     if all_shortest_paths[train.position][1][new_passenger_group.destination][0:2] == train.path[0:2]:
-                        train.assigned_passenger_groups.add(new_passenger_group.name)
-                        new_passenger_group.is_assigned = True
                         # Because we board a new passenger we can't go on this round
+                        if new_passenger_group.name in round_action.passenger_boards:
+                            continue
                         pause_train = True
                         round_action.passenger_boards[new_passenger_group.name] = train.name
                         free_capacity -= new_passenger_group.group_size
@@ -254,8 +254,9 @@ class SimplesSolverMultipleTrains(Solution):
                     train.on_tour = True
                     train.path = path
 
-            for train in network_state.trains.values():
-                self.navigate_train(network_state, network_graph, all_shortest_paths, train, round_action)
+            for train in sorted(network_state.trains.values(), key=lambda train: train.speed, reverse=True):
+                if len(train.path) != 0:
+                    self.navigate_train(network_state, network_graph, all_shortest_paths, train, round_action)
 
             processed = set()
             for pair in combinations([train.name for train in network_state.trains.values() if train.is_blocked], 2):
