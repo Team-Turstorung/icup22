@@ -258,7 +258,7 @@ class SimplesSolverMultipleTrains(Solution):
             round_action = RoundAction()
             round_id += 1
             for train in sorted(network_state.trains.values(), key=lambda train: train.speed, reverse=True):
-                if not train.path:
+                if len(train.path) != 0:
                     continue
                 path = self.plan_train(network_state, network_graph, all_shortest_paths, train)
                 if path is not None:
