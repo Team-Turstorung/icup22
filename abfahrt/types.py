@@ -188,9 +188,6 @@ class NetworkState:
     stations: Dict[str, Station] = field(default_factory=dict)
     lines: Dict[str, Line] = field(default_factory=dict)
 
-    def waiting_passengers(self) -> Dict[str, PassengerGroup]:
-        return {name: group for name, group in self.passenger_groups.items() if not group.is_destination_reached() and group.position_type == PassengerGroupPositionType.STATION}
-
     def is_valid(self) -> bool:
         return all([train.is_valid(self) for train in self.trains.values()]) and all(
             [station.is_valid(self) for station in self.stations.values()]) and all(
