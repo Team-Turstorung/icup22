@@ -184,10 +184,7 @@ class SimplesSolverMultipleTrains(Solution):
             next_station = network_state.stations[train.path[1]]
             if len(next_station.locks) + len(next_station.trains) - next_station.capacity < 0:
                 next_line.reserved_capacity += 1
-                next_station.locks.add(train.name)
-                round_action.train_departs[train.name] = next_line_id
-                train.path = train.path[1:]
-                train.station_state = StationStateType.LEAVING
+                self.depart_train(network_state, round_action, train, next_line)
             else:
                 train.station_state = StationStateType.BLOCKED
 
@@ -229,6 +226,13 @@ class SimplesSolverMultipleTrains(Solution):
                     passenger_group = current_passenger_group
             train.reserved_capacity = 0
             return all_shortest_paths[train.position][1][passenger_group.destination]
+
+    def depart_train(self, network_state: MultiNetworkState, round_action: RoundAction, train: MultiTrain, line: MultiLine):
+        next_station_id = line.end if train.position == line.start else line.start
+        train.station_state = StationStateType.LEAVING
+        train.path = train.path[1:]
+        round_action.train_departs[train.name] = line.name
+        network_state.stations[next_station_id].locks.add(train.name)
 
     def schedule(self, network_state: NetworkState, network_graph: nx.Graph) -> Schedule:
 
@@ -290,14 +294,8 @@ class SimplesSolverMultipleTrains(Solution):
                         if next_line.reserved_capacity + len(next_line.trains) - next_line.capacity > -2:
                             continue
                         next_line.reserved_capacity += 2
-                    network_state.stations[train1.position].locks.add(train2.name)
-                    network_state.stations[train2.position].locks.add(train1.name)
-                    round_action.train_departs[train1.name] = next_line_id
-                    round_action.train_departs[train2.name] = next_line_id
-                    train1.path = train1.path[1:]
-                    train2.path = train2.path[1:]
-                    train1.station_state = StationStateType.LEAVING
-                    train2.station_state = StationStateType.LEAVING
+                    self.depart_train(network_state, round_action, train1, next_line)
+                    self.depart_train(network_state, round_action, train2, next_line)
                     processed.add(train1.name)
                     processed.add(train2.name)
 
@@ -314,10 +312,7 @@ class SimplesSolverMultipleTrains(Solution):
                             next_line.reserved_capacity += 1
                         else:
                             continue
-                        blocked_train.station_state = StationStateType.LEAVING
-                        blocked_train.path = blocked_train.path[1:]
-                        round_action.train_departs[blocked_train.name] = next_line_id
-                        network_state.stations[leaving_train.position].locks.add(blocked_train.name)
+                        self.depart_train(network_state, round_action, blocked_train, next_line)
                         leaving_trains.add(blocked_train)
                         break
 
