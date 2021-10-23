@@ -21,16 +21,16 @@ SOLUTIONS = {
 def solve(solver, input_file, output_file, simulate):
     if simulate and not output_file:
         raise Exception("cannot simulate without an output file")
-    game_state, network_graph = file_parser.parse_input_file(input_file)
-    solver = SOLUTIONS[solver]()
-    sched = solver.schedule(deepcopy(game_state), network_graph)
-    game_state.apply_all(sched)
+    network_state, network_graph = file_parser.parse_input_file(input_file)
+    solver = SOLUTIONS[solver](deepcopy(network_state), network_graph)
+    sched = solver.schedule()
+    network_state.apply_all(sched)
     if output_file:
         with open(output_file, 'w', encoding='utf-8') as file:
             file.write(sched.serialize())
     print("Schedule:")
     print(sched.serialize())
-    print("Total delay using", type(solver).__name__, "is", game_state.total_delay())
+    print("Total delay using", type(solver).__name__, "is", network_state.total_delay())
     print()
     if simulate:
         print("Bahn-Simulator:")

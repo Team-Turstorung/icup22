@@ -13,16 +13,17 @@ PSEUDO_STATION_NAME = "pseudo"
 
 
 class MipSolver(Solution):
-    def __init__(self):
+    def __init__(self, network_state: NetworkState, network_graph: nx.Graph):
+        super().__init__(network_state, network_graph)
         self.log = logging.getLogger(__name__)
         self.log.setLevel(logging.INFO)
 
-    def schedule(self, network_state: NetworkState, network_graph: nx.graph):
+    def schedule(self):
         max_rounds = 5
         solutions = {}
         while True:
             self.log.info('trying max_rounds = %s', max_rounds)
-            m, position_variables = self.schedule_with_num_rounds(network_state, network_graph, max_rounds, solutions.get(max(solutions))[0] if len(solutions) != 0 else None)
+            m, position_variables = self.schedule_with_num_rounds(max_rounds, solutions.get(max(solutions))[0] if len(solutions) != 0 else None)
             if m.status == OptimizationStatus.OPTIMAL or m.status == OptimizationStatus.FEASIBLE:
                 if m.status == OptimizationStatus.OPTIMAL:
                     self.log.info('optimal solution cost %s found', m.objective_value)
@@ -36,44 +37,44 @@ class MipSolver(Solution):
             elif m.status == OptimizationStatus.NO_SOLUTION_FOUND:
                 self.log.info("no solution found for max_rounds = %s", max_rounds)
             max_rounds = max_rounds * 4 // 3
-        return self.solved_model_to_schedule(network_state, network_graph, max_rounds, *solutions[max_rounds][0])
+        return self.solved_model_to_schedule(max_rounds, *solutions[max_rounds][0])
 
-    def dicts_from_network(self, network_state: NetworkState):
-        stations = {name: number for number, name in enumerate(network_state.stations.keys())}
+    def dicts_from_network(self):
+        stations = {name: number for number, name in enumerate(self.network_state.stations.keys())}
         if PSEUDO_STATION_NAME not in stations:
             stations[PSEUDO_STATION_NAME] = max(stations.values()) + 1
         else:
             raise Exception("Please rename your pseudo station")
-        passengers = {name: number for number, name in enumerate(network_state.passenger_groups.keys())}
-        trains = {name: number for number, name in enumerate(network_state.trains.keys())}
-        lines = {name: number for number, name in enumerate(network_state.lines.keys())}
+        passengers = {name: number for number, name in enumerate(self.network_state.passenger_groups.keys())}
+        trains = {name: number for number, name in enumerate(self.network_state.trains.keys())}
+        lines = {name: number for number, name in enumerate(self.network_state.lines.keys())}
         reverse_trains = {number: name for name, number in trains.items()}
         reverse_stations = {number: name for name, number in stations.items()}
         reverse_lines = {number: name for name, number in lines.items()}
         reverse_passengers = {number: name for name, number in passengers.items()}
         return stations, lines, trains, passengers, reverse_stations, reverse_lines, reverse_trains, reverse_passengers
 
-    def schedule_with_num_rounds(self, network_state: NetworkState, network_graph: nx.graph, max_rounds: int, feasable_solution):
-        stations, lines, trains, passengers, reverse_stations, reverse_lines, _, _ = self.dicts_from_network(network_state)
+    def schedule_with_num_rounds(self, max_rounds: int, feasable_solution):
+        stations, lines, trains, passengers, reverse_stations, reverse_lines, _, _ = self.dicts_from_network()
 
         target_times = {passengers[passenger_id]: passenger.time_remaining for passenger_id, passenger in
-                        network_state.passenger_groups.items()}
+                        self.network_state.passenger_groups.items()}
         group_sizes = {passengers[passenger_id]: passenger.group_size for passenger_id, passenger in
-                        network_state.passenger_groups.items()}
+                        self.network_state.passenger_groups.items()}
         train_capacities = {trains[train_id]: train.capacity for train_id, train in
-                       network_state.trains.items()}
+                       self.network_state.trains.items()}
         station_capacities = {stations[station_id]: station.capacity for station_id, station in
-                            network_state.stations.items()}
+                            self.network_state.stations.items()}
         station_capacities[stations[PSEUDO_STATION_NAME]] = len(trains)
-        line_capacities = {lines[line_id]: line.capacity for line_id, line in network_state.lines.items()}
-        line_lengths = {lines[line_id]: line.length for line_id, line in network_state.lines.items()}
+        line_capacities = {lines[line_id]: line.capacity for line_id, line in self.network_state.lines.items()}
+        line_lengths = {lines[line_id]: line.length for line_id, line in self.network_state.lines.items()}
         train_initial_positions = {trains[train_id]: stations[train.position] if train.position_type == TrainPositionType.STATION else None for train_id, train in
-                                   network_state.trains.items()}
+                                   self.network_state.trains.items()}
         passenger_initial_positions = {passengers[passenger_id]: stations[passenger.position] for passenger_id, passenger in
-                                       network_state.passenger_groups.items()}
-        train_speeds = {trains[train_id]: train.speed for train_id, train in network_state.trains.items()}
+                                       self.network_state.passenger_groups.items()}
+        train_speeds = {trains[train_id]: train.speed for train_id, train in self.network_state.trains.items()}
         targets = {passengers[passenger_id]: stations[passenger.destination] for passenger_id, passenger in
-                   network_state.passenger_groups.items()}
+                   self.network_state.passenger_groups.items()}
 
         m = Model()
 
@@ -135,9 +136,9 @@ class MipSolver(Solution):
                 possible_next_stations = [s1]
                 possible_next_lines = []
                 for s2 in stations.values():
-                    if not network_graph.has_edge(reverse_stations[s1], reverse_stations[s2]):
+                    if not self.network_graph.has_edge(reverse_stations[s1], reverse_stations[s2]):
                         continue
-                    l = lines[network_graph[reverse_stations[s1]][reverse_stations[s2]]["name"]]
+                    l = lines[self.network_graph[reverse_stations[s1]][reverse_stations[s2]]["name"]]
                     if train_speeds[t] >= line_lengths[l]:
                         possible_next_stations.append(s2)
                     else:
@@ -150,8 +151,8 @@ class MipSolver(Solution):
         for i in range(max_rounds-1):
             for t in trains.values():
                 for l in lines.values():
-                    s1 = stations[network_state.lines[reverse_lines[l]].start]
-                    s2 = stations[network_state.lines[reverse_lines[l]].end]
+                    s1 = stations[self.network_state.lines[reverse_lines[l]].start]
+                    s2 = stations[self.network_state.lines[reverse_lines[l]].end]
                     # Train arrives at station when last round's progress plus speed is greater than length
                     m += line_lengths[l] <= train_progress[i][l][t] + train_speeds[t] + line_lengths[l]*(2-train_position_stations[i+1][s2][t]-train_position_stations[i+1][s1][t]-train_position_lines[i][l][t])
 
@@ -282,16 +283,16 @@ class MipSolver(Solution):
         m.optimize()
         return m, (train_position_stations, train_position_lines, passenger_position_stations, passenger_position_trains)
 
-    def solved_model_to_schedule(self, network_state: NetworkState, network_graph: nx.graph, max_rounds: int, train_position_stations, train_position_lines, passenger_position_stations, passenger_position_trains):
-        stations, lines, trains, passengers, reverse_stations, reverse_lines, reverse_trains, reverse_passengers = self.dicts_from_network(network_state)
+    def solved_model_to_schedule(self, max_rounds: int, train_position_stations, train_position_lines, passenger_position_stations, passenger_position_trains):
+        stations, lines, trains, passengers, reverse_stations, reverse_lines, reverse_trains, reverse_passengers = self.dicts_from_network()
         actions = defaultdict(RoundAction)
-        current_state = deepcopy(network_state)
+        current_state = deepcopy(self.network_state)
         for i in range(max_rounds):
             action = RoundAction()
 
             if i == 0:
                 for t in trains.values():
-                    if network_state.trains[reverse_trains[t]].position_type == TrainPositionType.NOT_STARTED:
+                    if self.network_state.trains[reverse_trains[t]].position_type == TrainPositionType.NOT_STARTED:
                         for s in stations.values():
                             if s != stations[PSEUDO_STATION_NAME] and train_position_stations[i][s][t].x == 1:
                                 action.train_starts[reverse_trains[t]] = reverse_stations[s]
@@ -310,7 +311,7 @@ class MipSolver(Solution):
                         if position_type == TrainPositionType.LINE:
                             action.train_departs[current_train.name] = position
                         elif position_type == TrainPositionType.STATION:
-                            action.train_departs[current_train.name] = network_graph[current_train.position][position]["name"]
+                            action.train_departs[current_train.name] = self.network_graph[current_train.position][position]["name"]
 
                 for p in passengers.values():
                     current_passenger = current_state.passenger_groups[reverse_passengers[p]]
