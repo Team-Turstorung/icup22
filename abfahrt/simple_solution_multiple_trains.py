@@ -354,7 +354,7 @@ class SimplesSolverMultipleTrains(Solution):
                         next_line = self.network_state.lines[next_line_id]
                         next_station = self.network_state.stations[leaving_train.position]
                         if not len(next_station.trains) + len(next_station.locks) - 1 < next_station.capacity:
-                           continue
+                            continue
                         if blocked_train.speed >= next_line.length:
                             pass
                         elif next_line.reserved_capacity + len(next_line.trains) < next_line.capacity:
