@@ -125,7 +125,7 @@ class SimplesSolverMultipleTrains(Solution):
                     new_round_action.train_starts[current_train.name] = emptiest_station
         return new_round_action
 
-    def compute_priorities(self, network_state: MultiNetworkState, all_shortest_paths: dict[str, Tuple]):
+    def compute_priorities(self, network_state: MultiNetworkState, all_shortest_paths: Dict[str, Tuple]):
         for passenger_group in network_state.passenger_groups.values():
             passenger_group.priority = all_shortest_paths[passenger_group.position][0][
                                                    passenger_group.destination] / (
@@ -196,7 +196,7 @@ class SimplesSolverMultipleTrains(Solution):
             occupied_space += passenger_group.group_size
         return train.capacity - occupied_space - train.reserved_capacity
 
-    def plan_train(self, network_state: MultiNetworkState, network_graph: nx.Graph, all_shortest_paths: dict[str, Tuple], train: MultiTrain):
+    def plan_train(self, network_state: MultiNetworkState, network_graph: nx.Graph, all_shortest_paths: Dict[str, Tuple], train: MultiTrain):
         if len(train.passenger_groups) == 0:
             # go to suitable passenger group
             passengers_sorted_by_priority = sorted(network_state.waiting_passengers().values(),
