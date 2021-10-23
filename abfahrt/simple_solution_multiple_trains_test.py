@@ -18,9 +18,9 @@ def test_station_capacity():
 def test_line_forth_back():
     create_schedule_assert_delay(SimplesSolverMultipleTrains, "examples/official/testLineForthBack/input.txt", 0)
 
-# TODO implement wildcard trains that are not used
-# def test_custom_wildcard():
-#     create_schedule_assert_delay(SimplesSolverMultipleTrains, "examples/custom/wildcard/input.txt", 3)
+
+def test_custom_wildcard():
+    create_schedule_assert_delay(SimplesSolverMultipleTrains, "examples/official/unusedWildcardTrain/input.txt", 31)
 
 
 def test_custom_mip1():
@@ -41,3 +41,7 @@ def test_custom_swap():
 
 def test_custom_blockchain():
     create_schedule_assert_delay(SimplesSolverMultipleTrains, "examples/custom/blockchain.txt", 4)
+
+
+def test_custom_line_limit():
+    create_schedule_assert_delay(SimplesSolverMultipleTrains, "examples/custom/line_limit_conflict.txt", 7)

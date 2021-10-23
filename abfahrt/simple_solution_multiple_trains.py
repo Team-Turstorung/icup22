@@ -13,9 +13,13 @@ from abfahrt.types import NetworkState, Schedule, TrainPositionType, RoundAction
 
 class StationStateType(enum.Enum):
     BOARDING = 0
-    BLOCKED = 1
+    BLOCKED_STATION = 1
     LEAVING = 2
     UNUSED = 3
+    BLOCKED_LINE = 4
+    ARRIVING = 5
+    READY_TO_LEAVE = 6
+    ON_LINE = 7
 
     def __repr__(self):
         return self.name
@@ -121,8 +125,11 @@ class SimplesSolverMultipleTrains(Solution):
                     emptiest_station = max(
                         station_space_left.items(),
                         key=lambda item: item[1])[0]
-                    station_space_left[emptiest_station] -= 1
-                    new_round_action.train_starts[current_train.name] = emptiest_station
+                    if station_space_left[emptiest_station] > 1:
+                        station_space_left[emptiest_station] -= 1
+                        new_round_action.train_starts[current_train.name] = emptiest_station
+                    else:
+                        break
         return new_round_action
 
     def compute_priorities(self, network_state: MultiNetworkState, all_shortest_paths: Dict[str, Tuple]):
@@ -182,11 +189,14 @@ class SimplesSolverMultipleTrains(Solution):
         next_line = network_state.lines[next_line_id]
         if (next_line.reserved_capacity + len(next_line.trains) - next_line.capacity) < 0 or next_line.length <= train.speed:
             next_station = network_state.stations[train.path[1]]
-            if len(next_station.locks) + len(next_station.trains) - next_station.capacity < 0:
-                next_line.reserved_capacity += 1
+            if len(next_station.locks) + len(next_station.trains) < next_station.capacity:
+                if next_line.length > train.speed:
+                    next_line.reserved_capacity += 1
                 self.depart_train(network_state, round_action, train, next_line)
             else:
-                train.station_state = StationStateType.BLOCKED
+                train.station_state = StationStateType.BLOCKED_STATION
+        else:
+            train.station_state = StationStateType.BLOCKED_LINE
 
     def calculate_free_capacity(self, network_state: MultiNetworkState, train: MultiTrain) -> int:
         # Get the capacity that is left on a train, to decide if we want new passengers.
@@ -197,6 +207,8 @@ class SimplesSolverMultipleTrains(Solution):
         return train.capacity - occupied_space - train.reserved_capacity
 
     def plan_train(self, network_state: MultiNetworkState, network_graph: nx.Graph, all_shortest_paths: Dict[str, Tuple], train: MultiTrain):
+        if not train.position:
+            return
         if len(train.passenger_groups) == 0:
             # go to suitable passenger group
             passengers_sorted_by_priority = sorted(network_state.waiting_passengers().values(),
@@ -258,7 +270,12 @@ class SimplesSolverMultipleTrains(Solution):
             for line in network_state.lines.values():
                 line.reserved_capacity = 0
             for train in network_state.trains.values():
-                train.station_state = StationStateType.UNUSED
+                if train.position_type == TrainPositionType.LINE and train.speed + train.line_progress >= network_state.lines[train.position].length:
+                    train.station_state = StationStateType.ARRIVING
+                elif train.station_state == StationStateType.READY_TO_LEAVE:
+                    continue
+                else:
+                    train.station_state = StationStateType.UNUSED
             round_action = RoundAction()
             round_id += 1
             for train in sorted(network_state.trains.values(), key=lambda train: train.speed, reverse=True):
@@ -268,12 +285,25 @@ class SimplesSolverMultipleTrains(Solution):
                 if path is not None:
                     train.path = path
 
-            for train in sorted(network_state.trains.values(), key=lambda train: train.speed, reverse=True):
+            for train in [train for train in network_state.trains.values() if train.station_state == StationStateType.ARRIVING]:
+                next_station = network_state.stations[train.next_station]
+                if len(next_station.locks) + len(next_station.trains) > next_station.capacity:
+                    for leaving_train_name in next_station.trains:
+                        leaving_train = network_state.trains[leaving_train_name]
+                        if len(leaving_train.path) <= 1:
+                            continue
+                        next_line_id = network_graph.edges[leaving_train.position, leaving_train.path[1]]['name']
+                        next_line = network_state.lines[next_line_id]
+                        if leaving_train.station_state == StationStateType.READY_TO_LEAVE and next_line.name == train.position:
+                            self.depart_train(network_state, round_action, leaving_train, next_line)
+                            break
+
+            for train in sorted([train for train in network_state.trains.values() if train.station_state == StationStateType.UNUSED], key=lambda train: train.speed, reverse=True):
                 if len(train.path) != 0:
                     self.navigate_train(network_state, network_graph, all_shortest_paths, train, round_action)
 
             processed = set()
-            for pair in combinations([train.name for train in network_state.trains.values() if train.station_state == StationStateType.BLOCKED], 2):
+            for pair in combinations([train.name for train in network_state.trains.values() if train.station_state == StationStateType.BLOCKED_STATION], 2):
                 train1 = network_state.trains[pair[0]]
                 train2 = network_state.trains[pair[1]]
                 if train1.position == train2.position or train1.name in processed or train2.name in processed:
@@ -291,8 +321,22 @@ class SimplesSolverMultipleTrains(Solution):
                             continue
                         next_line.reserved_capacity += 1
                     else:
-                        if next_line.reserved_capacity + len(next_line.trains) - next_line.capacity > -2:
-                            continue
+                        if next_line.reserved_capacity + len(next_line.trains) > next_line.capacity - 2:
+                            if next_line.reserved_capacity + len(next_line.trains) > next_line.capacity - 1:
+                                continue
+                            else:
+                                if train1.speed > train2.speed:
+                                    self.depart_train(network_state, round_action, train1, next_line)
+                                    processed.add(train1.name)
+                                    processed.add(train2.name)
+                                    train2.station_state = StationStateType.READY_TO_LEAVE
+                                else:
+                                    self.depart_train(network_state, round_action, train2, next_line)
+                                    processed.add(train1.name)
+                                    processed.add(train2.name)
+                                    train1.station_state = StationStateType.READY_TO_LEAVE
+                                next_line.reserved_capacity += 1
+                                continue
                         next_line.reserved_capacity += 2
                     self.depart_train(network_state, round_action, train1, next_line)
                     self.depart_train(network_state, round_action, train2, next_line)
@@ -302,10 +346,13 @@ class SimplesSolverMultipleTrains(Solution):
             leaving_trains = {train for train in network_state.trains.values() if train.station_state == StationStateType.LEAVING}
             while len(leaving_trains) != 0:
                 leaving_train = leaving_trains.pop()
-                for blocked_train in [train for train in network_state.trains.values() if train.station_state == StationStateType.BLOCKED]:
+                for blocked_train in [train for train in network_state.trains.values() if train.station_state == StationStateType.BLOCKED_STATION]:
                     if blocked_train.path[1] == leaving_train.position:
                         next_line_id = network_graph.edges[blocked_train.position, leaving_train.position]['name']
                         next_line = network_state.lines[next_line_id]
+                        next_station = network_state.stations[leaving_train.position]
+                        if not len(next_station.trains) + len(next_station.locks) - 1 < next_station.capacity:
+                           continue
                         if blocked_train.speed >= next_line.length:
                             pass
                         elif next_line.reserved_capacity + len(next_line.trains) < next_line.capacity:
