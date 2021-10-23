@@ -308,7 +308,7 @@ class SimplesSolverMultipleTrains(Solution):
                 else:
                     train.station_state = StationStateType.UNUSED
             round_action = RoundAction()
-            for train in sorted(network_state.trains.values(
+            for train in sorted(self.network_state.trains.values(
             ), key=lambda train: train.speed, reverse=True):
                 if len(train.path) != 0:
                     continue
