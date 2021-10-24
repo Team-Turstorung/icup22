@@ -101,11 +101,18 @@ def generate_trains(state: NetworkState, graph: nx.Graph, **kwargs):
     min_train_capacity = kwargs.get('min_train_capacity', 1)
     max_train_capacity = kwargs.get('max_train_capacity', 60)
     trains = {}
+    free_capacities = {station.name: station.capacity for station in state.stations.values()}
     for i in range(num_trains):
         train_capacity = random.randint(
             min_train_capacity, max_train_capacity)
         name = 'T' + str(i + 1)
-        start = random.choice([*graph.nodes, '*'])
+        while True:
+            start = random.choice([*graph.nodes, '*'])
+            if start == '*':
+                break
+            elif free_capacities[start] != 0:
+                free_capacities[start] -= 1
+                break
         speed = round(
             random.uniform(
                 min_train_speed,
@@ -213,6 +220,7 @@ def execute(args: argparse.Namespace):
     args_dict = vars(args)
     game_state, _ = generate_game_state(
         **{key: args_dict[key] for key in args_dict if args_dict[key] is not None})
+    print("Starting to write game State")
     if args.output is None:
         print(game_state.serialize())
     else:
