@@ -12,23 +12,22 @@ def test_kapazitaet():
 
 
 def test_station_capacity():
-    create_schedule_assert_delay(SimplesSolverMultipleTrains, "examples/official/stationCapacity/input.txt", 0)
+    create_schedule_assert_delay(SimplesSolverMultipleTrains, "examples/official/stationCapacity/input.txt", 50)
 
 
 def test_line_forth_back():
     create_schedule_assert_delay(SimplesSolverMultipleTrains, "examples/official/testLineForthBack/input.txt", 0)
 
 
-#def test_custom_wildcard():
-#    create_schedule_assert_delay(SimplesSolverMultipleTrains, "examples/official/unusedWildcardTrain/input.txt", 87)
-#TODO loops (deadlock)
+def test_custom_wildcard():
+    create_schedule_assert_delay(SimplesSolverMultipleTrains, "examples/official/unusedWildcardTrain/input.txt", 68)
 
 def test_custom_mip1():
     create_schedule_assert_delay(SimplesSolverMultipleTrains, "examples/custom/mip_test.txt", 17)
 
 
 def test_custom_mip2():
-    create_schedule_assert_delay(SimplesSolverMultipleTrains, "examples/custom/mip_test2.txt", 25)
+    create_schedule_assert_delay(SimplesSolverMultipleTrains, "examples/custom/mip_test2.txt", 24)
 
 
 def test_custom_mip3():
