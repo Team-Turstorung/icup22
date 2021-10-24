@@ -171,28 +171,27 @@ class SimplesSolverMultipleTrains(Solution):
     def update_route_prevent_full_stations(self, train: MultiTrain, round_action: RoundAction):
         assert train.reserved_capacity == 0
         assert len([passenger_group for passenger_group in train.passenger_groups if
-                    passenger_group not in round_action.passenger_detrains]) == 0
-        if len(self.network_state.stations[train.position].locks) + len(
-            self.network_state.stations[train.position].trains) >= self.network_state.stations[train.position].capacity:
+                    passenger_group not in round_action.passenger_detrains and self.network_state.passenger_groups[passenger_group].destination != train.position]) == 0
+        current_position = self.network_state.stations[train.position]
+        if len(current_position.locks) + len(current_position.trains) >= current_position.capacity:
             for neighbor in self.network_graph.neighbors(train.position):
-                if len(self.network_state.stations[neighbor].locks) + len(
-                    self.network_state.stations[train.position].trains) < self.network_state.stations[
-                    neighbor].capacity:
+                neighbor_station = self.network_state.stations[neighbor]
+                if len(neighbor_station.locks) + len(neighbor_station.trains) < neighbor_station.capacity:
                     train.path = [train.position, neighbor]
                     return
             for neighbor in self.network_graph.neighbors(train.position):
                 neighbor_station = self.network_state.stations[neighbor]
                 for swap_train in [self.network_state.trains[train_name] for train_name in neighbor_station.trains]:
-                    if len(swap_train.path) > 1 and swap_train.path[1] == train.position:
+                    if len(swap_train.path) > 1 and swap_train.path[1] == train.position and swap_train.assigned_passenger_group is not None:
                         train.path = [train.position, neighbor]
                         return
 
     def reserve_next_passenger(self, train: MultiTrain, round_action: RoundAction) -> Optional[MultiPassengerGroup]:
         assert train.assigned_passenger_group is None
         if len([passenger_group for passenger_group in train.passenger_groups if
-                passenger_group not in round_action.passenger_detrains]) != 0:
+                passenger_group not in round_action.passenger_detrains and self.network_state.passenger_groups[passenger_group].destination != train.position]) != 0:
             train.assigned_passenger_group = max(
-                [self.network_state.passenger_groups[passenger_group] for passenger_group in train.passenger_groups],
+                [self.network_state.passenger_groups[passenger_group] for passenger_group in train.passenger_groups if passenger_group not in round_action.passenger_detrains and self.network_state.passenger_groups[passenger_group].destination != train.position],
                 key=lambda passenger_group: passenger_group.priority)
             train.assigned_passenger_group.is_assigned = False
             return train.assigned_passenger_group
@@ -233,6 +232,10 @@ class SimplesSolverMultipleTrains(Solution):
                         break
 
     def update_all_train_routes(self, round_action: RoundAction):
+        # Check if all passengers have reached their destination to prevent keep planing unnecessary tours
+        passengers_not_reached_destination = [passenger_group.name for passenger_group in self.network_state.passenger_groups.values() if passenger_group.destination != passenger_group.position]
+        if len(passengers_not_reached_destination) == 0:
+            return
         for train in sorted(self.network_state.trains.values(), key=lambda train: train.speed, reverse=True):
             if len(train.path) == 0 and train.position is not None:
                 if train.assigned_passenger_group is None:
@@ -424,6 +427,8 @@ class SimplesSolverMultipleTrains(Solution):
 
             self.release_all_station_locks()
             self.swap_for_all_arriving(round_action)
+            self.process_trains_at_final_destination(round_action)
+            self.update_all_train_routes(round_action)
             self.process_trains_at_final_destination(round_action)
             self.update_all_train_routes(round_action)
             self.board_and_detrain_additional_passengers(round_action)

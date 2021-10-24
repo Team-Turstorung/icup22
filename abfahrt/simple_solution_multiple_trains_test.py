@@ -12,7 +12,7 @@ def test_kapazitaet():
 
 
 def test_station_capacity():
-    create_schedule_assert_delay(SimplesSolverMultipleTrains, "examples/official/stationCapacity/input.txt", 50)
+    create_schedule_assert_delay(SimplesSolverMultipleTrains, "examples/official/stationCapacity/input.txt", 0)
 
 
 def test_line_forth_back():
