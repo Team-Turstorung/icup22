@@ -1,7 +1,7 @@
 from dataclasses import field, dataclass, asdict
 import enum
 import logging
-from typing import Dict, List, Set, Tuple
+from typing import Dict, List, Set, Tuple, Optional
 from itertools import combinations
 
 import networkx as nx
@@ -18,8 +18,7 @@ class TrainState(enum.Enum):
     UNUSED = 3
     BLOCKED_LINE = 4
     ARRIVING = 5
-    READY_TO_LEAVE = 6
-    ON_LINE = 7
+    WAITING_FOR_SWAP = 6
 
     def __repr__(self):
         return self.name
@@ -30,9 +29,12 @@ class TrainState(enum.Enum):
 @dataclass(unsafe_hash=True)
 class MultiTrain(Train):
     path: List[str] = field(default_factory=list, compare=False)
-    reserved_capacity: int = 0
-    assigned_passenger_groups: Set[str] = field(default_factory=set, compare=False)
+    assigned_passenger_group: Optional['MultiPassengerGroup'] = None
     station_state: TrainState = TrainState.UNUSED
+
+    @property
+    def reserved_capacity(self):
+        return 0 if self.assigned_passenger_group is None or self.assigned_passenger_group.position == self.name else self.assigned_passenger_group.group_size
 
 @dataclass
 class MultiLine(Line):
@@ -44,7 +46,7 @@ class MultiStation(Station):
     locks: Set[str] = field(default_factory=set)
 
 
-@dataclass
+@dataclass(unsafe_hash=True)
 class MultiPassengerGroup(PassengerGroup):
     is_assigned: bool = False
     priority: int = 0
@@ -210,7 +212,7 @@ class SimplesSolverMultipleTrains(Solution):
             else:
                 train.station_state = TrainState.BLOCKED_STATION
         else:
-            if train.station_state != TrainState.READY_TO_LEAVE:
+            if train.station_state != TrainState.WAITING_FOR_SWAP:
                 train.station_state = TrainState.BLOCKED_LINE
 
     def calculate_free_capacity(self, train: MultiTrain) -> int:
@@ -220,6 +222,41 @@ class SimplesSolverMultipleTrains(Solution):
             passenger_group = self.network_state.passenger_groups[passenger_group_name]
             occupied_space += passenger_group.group_size
         return train.capacity - occupied_space - train.reserved_capacity
+
+    def update_route_for_boarded_passenger(self, train: MultiTrain):
+        train.path = self.all_shortest_paths[train.position][1][train.assigned_passenger_group.destination]
+
+    def update_route_to_assigned_passenger(self, train: MultiTrain):
+        train.path = self.all_shortest_paths[train.position][1][train.assigned_passenger_group.position]
+
+    def update_route_prevent_full_stations(self, train: MultiTrain, round_action: RoundAction):
+        assert train.reserved_capacity == 0
+        assert len([passenger_group for passenger_group in train.passenger_groups if passenger_group not in round_action.passenger_detrains]) == 0
+        if self.network_state.stations[train.position].is_full():
+            for neighbor in self.network_graph.neighbors(train.position):
+                if not self.network_state.stations[neighbor].is_full():
+                    train.path = [train.position, neighbor]
+
+    def reserve_next_passenger(self, train: MultiTrain, round_action: RoundAction) -> Optional[MultiPassengerGroup]:
+        assert train.assigned_passenger_group is None
+        if len([passenger_group for passenger_group in train.passenger_groups if passenger_group not in round_action.passenger_detrains]) != 0:
+            train.assigned_passenger_group = max(
+                [self.network_state.passenger_groups[passenger_group] for passenger_group in train.passenger_groups],
+                key=lambda passenger_group: passenger_group.priority)
+            train.assigned_passenger_group.is_assigned = False
+            return train.assigned_passenger_group
+
+        passengers_sorted_by_priority = sorted(self.network_state.waiting_passengers().values(),
+                                               key=lambda passenger_group: passenger_group.priority / (
+                                                   self.all_shortest_paths[train.position][0][passenger_group.position] + 1),
+                                               reverse=True)
+        for passenger_group in passengers_sorted_by_priority:
+            if not passenger_group.is_assigned and passenger_group.group_size <= train.capacity:
+                # Select matching passenger group for train
+                train.assigned_passenger_group = passenger_group
+                passenger_group.is_assigned = True
+                return passenger_group
+        return None
 
     def plan_train(self, train: MultiTrain):
         if not train.position:
@@ -271,17 +308,84 @@ class SimplesSolverMultipleTrains(Solution):
                         continue
                     next_line_id = self.network_graph.edges[leaving_train.position, leaving_train.path[1]]['name']
                     next_line = self.network_state.lines[next_line_id]
-                    if leaving_train.station_state == TrainState.READY_TO_LEAVE and next_line.name == train.position:
+                    if leaving_train.station_state == TrainState.WAITING_FOR_SWAP and next_line.name == train.position:
                         self.depart_train(round_action, leaving_train, next_line)
                         break
 
-    def plan_all_trains(self):
+    def update_all_train_routes(self, round_action: RoundAction):
         for train in sorted(self.network_state.trains.values(), key=lambda train: train.speed, reverse=True):
-            if len(train.path) != 0:
-                continue
-            path = self.plan_train(train)
-            if path is not None:
-                train.path = path
+            if len(train.path) == 0 and train.position is not None:
+                if train.assigned_passenger_group is None:
+                    self.reserve_next_passenger(train, round_action)
+                    if train.assigned_passenger_group is not None:
+                        if train.assigned_passenger_group.position == train.name:
+                            self.update_route_for_boarded_passenger(train)
+                        else:
+                            self.update_route_to_assigned_passenger(train)
+                    else:
+                        self.update_route_prevent_full_stations(train, round_action)
+                else:
+                    self.update_route_for_boarded_passenger(train)
+
+    def board_all_reserved_passengers_for_train(self, train: MultiTrain, round_action: RoundAction):
+        assert len(train.path) == 1
+        assert train.position in [train.assigned_passenger_group.position, train.assigned_passenger_group.destination]
+        train.path = []
+
+        # Board passengers with reserved capacity
+        if train.assigned_passenger_group.position == train.position:
+            round_action.passenger_boards[train.assigned_passenger_group.name] = train.name
+        # Detrain passengers that have reached their destination
+        else:
+            round_action.passenger_detrains.append(train.assigned_passenger_group.name)
+            train.assigned_passenger_group = None
+        train.station_state = TrainState.BOARDING
+
+    def board_and_detrain_additional_passengers(self, round_action: RoundAction):
+        for train in [train for train in self.network_state.trains.values() if train.position_type == TrainPositionType.STATION and train.station_state != TrainState.DEPARTING]:
+            current_station = self.network_state.stations[train.position]
+            # Detrain
+            for passenger_group_name in train.passenger_groups:
+                passenger_group = self.network_state.passenger_groups[passenger_group_name]
+                if passenger_group.name not in round_action.passenger_detrains and (passenger_group.destination == train.position or self.all_shortest_paths[train.position][1][passenger_group.destination][0:2] != train.path[0:2]):
+                    assert passenger_group != train.assigned_passenger_group
+                    round_action.passenger_detrains.append(passenger_group.name)
+                    train.station_state = TrainState.BOARDING
+
+            # Board
+            if len(current_station.passenger_groups) != 0:
+                free_capacity = self.calculate_free_capacity(train)
+                for new_passenger_group_name in current_station.passenger_groups:
+                    new_passenger_group = self.network_state.passenger_groups[new_passenger_group_name]
+                    # Check if there is no other train that wants the passenger, there is enough space and it is the right direction
+                    if not new_passenger_group.is_assigned and free_capacity >= new_passenger_group.group_size and not new_passenger_group.is_destination_reached() and \
+                        self.all_shortest_paths[train.position][1][new_passenger_group.destination][0:2] == train.path[0:2] and new_passenger_group_name not in round_action.passenger_boards:
+                        train.station_state = TrainState.BOARDING
+                        round_action.passenger_boards[new_passenger_group.name] = train.name
+                        free_capacity -= new_passenger_group.group_size
+
+    def release_all_station_locks(self):
+        for train in self.network_state.trains.values():
+            if train.position_type == TrainPositionType.STATION:
+                self.network_state.stations[train.position].locks.discard(train.name)
+
+    def depart_all_trains(self, round_action: RoundAction):
+        for train in [train for train in self.network_state.trains.values() if train.position_type == TrainPositionType.STATION and len(train.path) > 1 and train.station_state != TrainState.BOARDING and train.station_state != TrainState.DEPARTING]:
+            if train.position != train.path[0]:
+                print("errör")
+            next_line = self.network_state.lines[self.network_graph.edges[train.position, train.path[1]]['name']]
+
+            if (next_line.reserved_capacity + len(next_line.trains) - next_line.capacity) < 0 or next_line.length <= train.speed:
+                next_station = self.network_state.stations[train.path[1]]
+                if len(next_station.locks) + len(next_station.trains) < next_station.capacity or train.name in next_station.locks:
+                    if next_line.length > train.speed:
+                        next_line.reserved_capacity += 1
+                    self.depart_train(round_action, train, next_line)
+                else:
+                    train.station_state = TrainState.BLOCKED_STATION
+            else:
+                if train.station_state != TrainState.WAITING_FOR_SWAP:
+                    train.station_state = TrainState.BLOCKED_LINE
 
     def navigate_all_trains(self, round_action: RoundAction):
         for train in sorted([train for train in self.network_state.trains.values() if not train.station_state == TrainState.DEPARTING], key=lambda train: train.speed, reverse=True):
@@ -337,13 +441,13 @@ class SimplesSolverMultipleTrains(Solution):
                                 self.depart_train(round_action, train1, next_line)
                                 processed.add(train1.name)
                                 processed.add(train2.name)
-                                train2.station_state = TrainState.READY_TO_LEAVE
+                                train2.station_state = TrainState.WAITING_FOR_SWAP
                                 self.network_state.stations[train1.position].locks.add(train2.name)
                             else:
                                 self.depart_train(round_action, train2, next_line)
                                 processed.add(train1.name)
                                 processed.add(train2.name)
-                                train1.station_state = TrainState.READY_TO_LEAVE
+                                train1.station_state = TrainState.WAITING_FOR_SWAP
                                 self.network_state.stations[train2.position].locks.add(train1.name)
                             next_line.reserved_capacity += 1
                             continue
@@ -364,6 +468,8 @@ class SimplesSolverMultipleTrains(Solution):
         actions[round_id] = round_action
         self.network_state.apply(round_action)
 
+        self.update_all_train_routes(round_action)
+
         # Game loop, till there are no more passengers to transport
         while True:
             print(f"Processing round {round_id}")
@@ -372,14 +478,19 @@ class SimplesSolverMultipleTrains(Solution):
             for train in self.network_state.trains.values():
                 if train.position_type == TrainPositionType.LINE and train.speed + train.line_progress >= self.network_state.lines[train.position].length:
                     train.station_state = TrainState.ARRIVING
-                elif train.station_state != TrainState.READY_TO_LEAVE:
+                elif train.station_state != TrainState.WAITING_FOR_SWAP:
                     train.station_state = TrainState.UNUSED
             round_action = RoundAction()
             round_id += 1
 
-            self.plan_all_trains()
+            self.release_all_station_locks()
             self.depart_for_all_arriving(round_action)
-            self.navigate_all_trains(round_action)
+            for train in self.network_state.trains.values():
+                if len(train.path) == 1 and train.position_type == TrainPositionType.STATION and train.station_state != TrainState.DEPARTING and train.assigned_passenger_group is not None:
+                    self.board_all_reserved_passengers_for_train(train, round_action)
+            self.update_all_train_routes(round_action)
+            self.board_and_detrain_additional_passengers(round_action)
+            self.depart_all_trains(round_action)
             self.resolve_blocked_station_swap(round_action)
             self.resolve_blocked_station_leaving(round_action)
 
