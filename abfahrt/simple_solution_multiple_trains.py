@@ -148,7 +148,7 @@ class SimplesSolverMultipleTrains(Solution):
                                                    passenger_group.time_remaining + 1) * passenger_group.group_size
 
     def navigate_train(self, train: MultiTrain, round_action: RoundAction):
-        if train.position_type == TrainPositionType.LINE or not train.path:
+        if train.position_type == TrainPositionType.LINE or len(train.path) == 0:
             return
         current_station = self.network_state.stations[train.position]
         current_station.locks.discard(train.name)
@@ -160,11 +160,11 @@ class SimplesSolverMultipleTrains(Solution):
                 round_action.passenger_detrains.append(passenger_group.name)
                 train.station_state = TrainState.BOARDING
 
+        print(train.station_state, train.path)
         # We reached our current destination
         if len(train.path) == 1:
-            train.station_state = TrainState.BOARDING
-            # Board passengers with reserved capacity
             train.path = []
+            # Board passengers with reserved capacity
             if train.reserved_capacity != 0:
                 passenger_groups = [self.network_state.passenger_groups[passenger_group_id] for passenger_group_id in current_station.passenger_groups]
                 if len(passenger_groups) > 0:
@@ -173,8 +173,11 @@ class SimplesSolverMultipleTrains(Solution):
                             train.assigned_passenger_groups.remove(passenger_group.name)
                             passenger_group.is_assigned = False
                             round_action.passenger_boards[passenger_group.name] = train.name
-                            train.path = self.all_shortest_paths[train.position][1][passenger_group.destination]
+                            #train.path = self.all_shortest_paths[train.position][1][passenger_group.destination]
+                            train.station_state = TrainState.BOARDING
                             break
+            elif train.station_state != TrainState.BOARDING:
+                return
 
         # Check if we can take a new passenger with us (without reservation)
         if len(current_station.passenger_groups) != 0:
@@ -192,6 +195,8 @@ class SimplesSolverMultipleTrains(Solution):
                         free_capacity -= new_passenger_group.group_size
         if train.station_state == TrainState.BOARDING:
             return
+
+        assert len(train.path) == 0
 
         # go to next station in path
         next_line_id = self.network_graph.edges[train.position, train.path[1]]['name']

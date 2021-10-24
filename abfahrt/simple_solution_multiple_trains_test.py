@@ -20,7 +20,7 @@ def test_line_forth_back():
 
 
 def test_custom_wildcard():
-    create_schedule_assert_delay(SimplesSolverMultipleTrains, "examples/official/unusedWildcardTrain/input.txt", 29)
+    create_schedule_assert_delay(SimplesSolverMultipleTrains, "examples/official/unusedWildcardTrain/input.txt", 87)
 
 
 def test_custom_mip1():
@@ -28,11 +28,11 @@ def test_custom_mip1():
 
 
 def test_custom_mip2():
-    create_schedule_assert_delay(SimplesSolverMultipleTrains, "examples/custom/mip_test2.txt", 24)
+    create_schedule_assert_delay(SimplesSolverMultipleTrains, "examples/custom/mip_test2.txt", 34)
 
 
 def test_custom_mip3():
-    create_schedule_assert_delay(SimplesSolverMultipleTrains, "examples/custom/mip_test3.txt", 371)
+    create_schedule_assert_delay(SimplesSolverMultipleTrains, "examples/custom/mip_test3.txt", 411)
 
 
 def test_custom_swap():
