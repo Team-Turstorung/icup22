@@ -196,7 +196,7 @@ class NetworkState:
 
     def is_finished(self):
         return all([passenger_group.is_destination_reached()
-                    for passenger_group in self.passenger_groups.values()])
+                    for passenger_group in self.passenger_groups.values()]) and all([not train.position_type == TrainPositionType.LINE for train in self.trains.values()])
 
     def apply_all(self, schedule: 'Schedule'):
         num_rounds = max(schedule.actions.keys())
