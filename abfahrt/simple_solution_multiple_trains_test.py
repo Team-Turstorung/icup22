@@ -20,8 +20,7 @@ def test_line_forth_back():
 
 
 def test_custom_wildcard():
-    create_schedule_assert_delay(SimplesSolverMultipleTrains, "examples/official/unusedWildcardTrain/input.txt", 29)
-
+    create_schedule_assert_delay(SimplesSolverMultipleTrains, "examples/official/unusedWildcardTrain/input.txt", 68)
 
 def test_custom_mip1():
     create_schedule_assert_delay(SimplesSolverMultipleTrains, "examples/custom/mip_test.txt", 17)
