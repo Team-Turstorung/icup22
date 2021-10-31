@@ -5,7 +5,7 @@ import os
 import threading
 from copy import deepcopy
 from abfahrt.simple_solution import SimpleSolver
-from abfahrt.simple_solution_multiple_trains import SimplesSolverMultipleTrains
+from abfahrt.simple_solution_multiple_trains import SimpleSolverMultipleTrains
 from abfahrt.mip_solver import MipSolver
 from tools import generator, file_parser
 from tools.file_parser import parse_input_file, parse_output_file
