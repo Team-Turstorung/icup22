@@ -206,6 +206,12 @@ class NetworkState:
             self.apply(schedule.actions[i])
             if not self.is_valid():
                 raise Exception("invalid state after round", i)
+        round_counter = num_rounds + 1
+        while not self.is_finished():
+            self.apply(RoundAction())
+            round_counter += 1
+            if not self.is_valid():
+                raise Exception("invalid state after round", round_counter)
 
     def apply(self, action: 'RoundAction'):
         if action.is_zero_round():
@@ -301,9 +307,16 @@ class NetworkState:
 
     def total_delay(self):
         if not self.is_finished():
-            raise Exception("trying to get total delay when unfinished")
-        return sum(
-            [group.delay() for group in self.passenger_groups.values()])
+            additional_info = 'passenger groups not home: '
+            for passenger_group in self.passenger_groups.values():
+                if not passenger_group.is_destination_reached():
+                    additional_info += f'{passenger_group.name}, '
+            additional_info += 'trains on lines: '
+            for train in self.trains.values():
+                if train.position_type == TrainPositionType.LINE:
+                    additional_info += f'{train.name} on {train.position}, '
+            raise Exception(f"trying to get total delay when unfinished ({additional_info})")
+        return sum([group.delay() for group in self.passenger_groups.values()])
 
 
 @dataclass()
