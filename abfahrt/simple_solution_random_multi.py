@@ -1,9 +1,10 @@
 import enum
 import logging
 from copy import deepcopy
+import time
 from dataclasses import field, dataclass, asdict
 from itertools import combinations
-from random import shuffle, randint, random
+from random import shuffle, randint, random, seed
 from typing import Dict, List, Set, Tuple, Optional
 
 import networkx as nx
@@ -90,6 +91,9 @@ class SimpleSolverMultipleTrainsRandom(Solution):
 
         self.log = logging.getLogger(__name__)
         self.log.setLevel(logging.INFO)
+        new_seed = time.time()
+        print(f'SEED: {new_seed}')
+        seed(new_seed)
 
     def get_all_shortest_paths(self) -> Dict[str, Tuple]:
         shortest_paths = all_pairs_dijkstra(self.network_graph)
@@ -112,20 +116,26 @@ class SimpleSolverMultipleTrainsRandom(Solution):
         station_keys = list(self.network_state.stations.keys())
         shuffle(station_keys)
         wildcard_train_index = 0
-        for key in station_keys:
-            station = self.network_state.stations[key]
+        placed = len(wildcard_trains) == 0
+        while True:
+            for key in station_keys:
+                station = self.network_state.stations[key]
 
-            if station_space_left[station.name] <= 0:
-                continue
-            if wildcard_train_index >= len(wildcard_trains):
-                break
-
-            for _ in range(randint(0, station_space_left[station.name])):
+                if station_space_left[station.name] <= 0:
+                    continue
                 if wildcard_train_index >= len(wildcard_trains):
                     break
-                new_round_action.train_starts[wildcard_trains[wildcard_train_index].name] = station.name
-                wildcard_train_index += 1
-                station_space_left[station.name] -= 1
+
+                for _ in range(randint(0, station_space_left[station.name])):
+                    if wildcard_train_index >= len(wildcard_trains):
+                        break
+                    placed = True
+                    new_round_action.train_starts[wildcard_trains[wildcard_train_index].name] = station.name
+                    wildcard_train_index += 1
+                    station_space_left[station.name] -= 1
+            if not (all([train.position_type == TrainPositionType.NOT_STARTED for train in
+                 self.network_state.trains.values()]) and not placed):
+                break
 
         return new_round_action
 
@@ -183,18 +193,17 @@ class SimpleSolverMultipleTrainsRandom(Solution):
                 key=lambda passenger_group: passenger_group.priority)
             train.assigned_passenger_group.is_assigned = False
             return train.assigned_passenger_group
-
+        waiting_passengers = [passenger for passenger in self.network_state.waiting_passengers().values() if not passenger.is_assigned ]
         if mutate:
-            passengers_sorted = deepcopy(list(self.network_state.waiting_passengers().values()))
-            shuffle(passengers_sorted)
+            shuffle(waiting_passengers)
         else:
-            passengers_sorted = sorted(self.network_state.waiting_passengers().values(),
+            waiting_passengers = sorted(waiting_passengers,
                                                key=lambda passenger_group: passenger_group.priority / (
                                                    self.all_shortest_paths[train.position][0][
                                                        passenger_group.position] + 1),
                                                reverse=True)
 
-        for passenger_group in passengers_sorted:
+        for passenger_group in waiting_passengers:
             if not passenger_group.is_assigned and passenger_group.group_size <= train.capacity:
                 # Select matching passenger group for train
                 train.assigned_passenger_group = passenger_group
@@ -216,7 +225,7 @@ class SimpleSolverMultipleTrainsRandom(Solution):
             if len(next_station.locks) + len(next_station.trains) > next_station.capacity:
                 for leaving_train_name in next_station.trains:
                     leaving_train = self.network_state.trains[leaving_train_name]
-                    if len(leaving_train.path) <= 1:
+                    if len(leaving_train.path) <= 1 or leaving_train.station_state == TrainState.DEPARTING:
                         continue
                     next_line_id = self.network_graph.edges[leaving_train.position, leaving_train.path[1]]['name']
                     next_line = self.network_state.lines[next_line_id]
@@ -385,8 +394,7 @@ class SimpleSolverMultipleTrainsRandom(Solution):
     def process_trains_at_final_destination(self, round_action: RoundAction):
         for train in self.network_state.trains.values():
             # Check if train is arriving at final destination
-            if len(
-                train.path) == 1 and train.position_type == TrainPositionType.STATION and train.station_state != TrainState.DEPARTING:
+            if len(train.path) == 1 and train.position_type == TrainPositionType.STATION and train.station_state != TrainState.DEPARTING:
                 train.path = []
                 # Check if train is transporting (or will transporting) a passenger_group
                 if train.assigned_passenger_group is not None:
@@ -440,6 +448,7 @@ class SimpleSolverMultipleTrainsRandom(Solution):
 
             mutate_amount = 0
             # Game loop, till there are no more passengers to transport
+            broken_schedule = False
             while True:
                 round_id += 1
                 # print(f"Processing round {round_id}")
@@ -475,10 +484,14 @@ class SimpleSolverMultipleTrainsRandom(Solution):
 
                 actions[round_id] = round_action
                 self.network_state.apply(round_action)
+                if round_id > 1000: # TODO: resolve deadlocks smarter
+                    broken_schedule = True
+                    break
                 if self.network_state.is_finished():
                     break
-            total_delay = self.network_state.total_delay()
-            generation.append((Schedule.from_dict(actions), total_delay))
+            if not broken_schedule:
+                total_delay = self.network_state.total_delay()
+                generation.append((Schedule.from_dict(actions), total_delay))
         return generation
 
     def mutate(self, original_schedule, original_state):
@@ -492,7 +505,7 @@ class SimpleSolverMultipleTrainsRandom(Solution):
             actions[round_id] = round_action
             self.network_state.apply(round_action)
 
-        for _ in range(len(original_schedule.actions) // 2):
+        for _ in range(randint(1, len(original_schedule.actions))):
             round_id += 1
             round_action = deepcopy(original_schedule.actions[round_id])
             actions[round_id] = round_action
@@ -527,6 +540,9 @@ class SimpleSolverMultipleTrainsRandom(Solution):
                 mutate_amount -= 1
             else:
                 self.update_all_train_routes(round_action)
+
+            self.process_trains_at_final_destination(round_action)
+            self.update_all_train_routes(round_action)
             self.board_and_detrain_additional_passengers(round_action)
             self.depart_all_trains(round_action)
             self.resolve_blocked_station_swap(round_action)
@@ -535,16 +551,13 @@ class SimpleSolverMultipleTrainsRandom(Solution):
 
             actions[round_id] = round_action
             self.network_state.apply(round_action)
-            if not self.network_state.is_valid():
+            if not self.network_state.is_valid() or round_id > 1000:  # TODO: make deadlock better
                 return  # error in mutation
             if self.network_state.is_finished():
                 break
         sced = Schedule.from_dict(actions)
         state = deepcopy(original_state)
         state.apply_all(sced)
-        print(state.total_delay(), "VS",  self.network_state.total_delay())
-        #print(sced.serialize())
-        #exit()
         return sced, state.total_delay()
 
     def schedule(self) -> Schedule:
@@ -559,11 +572,15 @@ class SimpleSolverMultipleTrainsRandom(Solution):
 
         for generation_id in range(1, generation_size + 1):
             new_generation = []
-            for individual in generation:
-                new_generation.append(self.mutate(individual[0], original_state))
-                if individual[1] < min_total_delay:
-                    best_schedule = individual[0]
-                    min_total_delay = individual[1]
+            for individual_id in range(len(generation)):
+                new_individual = self.mutate(generation[individual_id][0], original_state)
+                if new_individual is None:
+                    continue
+                else:
+                    new_generation.append(new_individual)
+                if new_individual[1] < min_total_delay:
+                    best_schedule = new_individual[0]
+                    min_total_delay = new_individual[1]
             print(f'best score at gen #{generation_id}: {min_total_delay}')
 
             generation_merged = deepcopy(generation)
@@ -573,7 +590,11 @@ class SimpleSolverMultipleTrainsRandom(Solution):
 
         # sanity check
         schedule_is_valid, error_round_id = best_schedule.is_valid(original_state)
-        print(best_schedule.serialize())
         if not schedule_is_valid:
             raise Exception(f"invalid state at round {error_round_id}")
+        # check if finished
+        state = deepcopy(original_state)
+        state.apply_all(best_schedule)
+        if not state.is_finished():
+            raise Exception('game state is not finished - problem with schedule')
         return best_schedule
