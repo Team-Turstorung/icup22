@@ -1,3 +1,4 @@
+from copy import deepcopy
 from dataclasses import field, dataclass, asdict
 import enum
 import logging
@@ -80,7 +81,7 @@ def multify_network(network_state: NetworkState) -> MultiNetworkState:
     return new_state
 
 
-class SimplesSolverMultipleTrains(Solution):
+class SimpleSolverMultipleTrains(Solution):
 
     def __init__(self, network_state: NetworkState, network_graph: nx.Graph):
         super().__init__(network_state, network_graph)
@@ -98,7 +99,6 @@ class SimplesSolverMultipleTrains(Solution):
         return all_shortest_paths
 
     def place_wildcard_trains(self) -> RoundAction:
-
         new_round_action = RoundAction()
 
         wildcard_trains = filter(lambda train: train.position_type == TrainPositionType.NOT_STARTED,
@@ -401,6 +401,8 @@ class SimplesSolverMultipleTrains(Solution):
     def schedule(self) -> Schedule:
         self.compute_priorities()
 
+        original_state = deepcopy(self.network_state)
+
         # Create round action for zero Round
         round_action = self.place_wildcard_trains()
 
@@ -439,9 +441,13 @@ class SimplesSolverMultipleTrains(Solution):
 
             actions[round_id] = round_action
             self.network_state.apply(round_action)
-            if not self.network_state.is_valid():
-                raise Exception(f"invalid state at round {round_id}")
             if self.network_state.is_finished():
                 break
         schedule = Schedule.from_dict(actions)
+
+        # sanity check
+        schedule_is_valid, error_round_id = schedule.is_valid(original_state)
+        if not schedule_is_valid:
+            raise Exception(f"invalid state at round {error_round_id}")
+
         return schedule

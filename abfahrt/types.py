@@ -1,4 +1,5 @@
 from collections import defaultdict
+from copy import deepcopy
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Optional, List, Dict
@@ -376,3 +377,11 @@ class Schedule:
             output += '\n\n'
 
         return output
+
+    def is_valid(self, initial_network_state: NetworkState):
+        network_state = deepcopy(initial_network_state)
+        for round_id, round_action in self.actions.items():
+            if not network_state.is_valid():
+                return False, round_id
+            network_state.apply(round_action)
+        return True, None
