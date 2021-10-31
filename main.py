@@ -7,13 +7,15 @@ from copy import deepcopy
 from abfahrt.simple_solution import SimpleSolver
 from abfahrt.simple_solution_multiple_trains import SimpleSolverMultipleTrains
 from abfahrt.mip_solver import MipSolver
+from abfahrt.simple_solution_random_multi import SimpleSolverMultipleTrainsRandom
 from tools import generator, file_parser
 from tools.file_parser import parse_input_file, parse_output_file
 from tools.gui import start_gui
 
 SOLUTIONS = {
     'simple': SimpleSolver,
-    'multi': SimplesSolverMultipleTrains,
+    'multi': SimpleSolverMultipleTrains,
+    'random': SimpleSolverMultipleTrainsRandom,
     'mip': MipSolver,
 }
 
