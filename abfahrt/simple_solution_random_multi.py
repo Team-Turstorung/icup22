@@ -167,7 +167,7 @@ class SimpleSolverMultipleTrainsRandom(SimpleSolverMultipleTrains):
                     elif train.station_state != TrainState.WAITING_FOR_SWAP:
                         train.station_state = TrainState.UNUSED
 
-                if random() < 0.1:
+                if random() < 0.2:
                     mutate_amount = randint(1, 5)
                 self.release_all_station_locks()
                 self.swap_for_all_arriving(round_action)
@@ -181,7 +181,8 @@ class SimpleSolverMultipleTrainsRandom(SimpleSolverMultipleTrains):
                     self.update_all_train_routes(round_action)
                 self.process_trains_at_final_destination(round_action)
                 self.update_all_train_routes(round_action)
-                self.board_and_detrain_additional_passengers(round_action)
+                if mutate_amount == 0:
+                    self.board_and_detrain_additional_passengers(round_action)
                 self.depart_all_trains(round_action)
                 self.resolve_blocked_station_swap(round_action)
                 self.resolve_blocked_station_leaving(round_action)
@@ -248,7 +249,8 @@ class SimpleSolverMultipleTrainsRandom(SimpleSolverMultipleTrains):
 
             self.process_trains_at_final_destination(round_action)
             self.update_all_train_routes(round_action)
-            self.board_and_detrain_additional_passengers(round_action)
+            if mutate_amount == 0:
+                self.board_and_detrain_additional_passengers(round_action)
             self.depart_all_trains(round_action)
             self.resolve_blocked_station_swap(round_action)
             self.resolve_blocked_station_leaving(round_action)
