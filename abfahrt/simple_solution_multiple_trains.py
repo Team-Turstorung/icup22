@@ -263,10 +263,9 @@ class SimpleSolverMultipleTrains(Solution):
             train.assigned_passenger_group = None
         train.station_state = TrainState.BOARDING
 
-    def board_and_detrain_additional_passengers(self, round_action: RoundAction):
+    def detrain_additional_passengers(self, round_action: RoundAction):
         for train in [train for train in self.network_state.trains.values() if
                       train.position_type == TrainPositionType.STATION and train.station_state != TrainState.DEPARTING]:
-            current_station = self.network_state.stations[train.position]
             # Detrain
             for passenger_group_name in train.passenger_groups:
                 passenger_group = self.network_state.passenger_groups[passenger_group_name]
@@ -278,6 +277,10 @@ class SimpleSolverMultipleTrains(Solution):
                     round_action.passenger_detrains.append(passenger_group.name)
                     train.station_state = TrainState.BOARDING
 
+    def board_additional_passengers(self, round_action: RoundAction):
+        for train in [train for train in self.network_state.trains.values() if
+                      train.position_type == TrainPositionType.STATION and train.station_state != TrainState.DEPARTING]:
+            current_station = self.network_state.stations[train.position]
             # Board
             if len(current_station.passenger_groups) != 0:
                 free_capacity = self.calculate_free_capacity(train)
@@ -432,7 +435,8 @@ class SimpleSolverMultipleTrains(Solution):
             self.update_all_train_routes(round_action)
             self.process_trains_at_final_destination(round_action)
             self.update_all_train_routes(round_action)
-            self.board_and_detrain_additional_passengers(round_action)
+            self.detrain_additional_passengers(round_action)
+            self.board_additional_passengers(round_action)
             self.depart_all_trains(round_action)
             self.resolve_blocked_station_swap(round_action)
             self.resolve_blocked_station_leaving(round_action)
