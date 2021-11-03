@@ -223,14 +223,13 @@ class SimpleSolverMultipleTrains(Solution):
             if len(next_station.locks) + len(next_station.trains) > next_station.capacity:
                 for leaving_train_name in next_station.trains:
                     leaving_train = self.network_state.trains[leaving_train_name]
-                    if len(leaving_train.path) <= 1:
+                    if len(leaving_train.path) <= 1 or leaving_train.station_state == TrainState.DEPARTING:
                         continue
                     next_line_id = self.network_graph.edges[leaving_train.position, leaving_train.path[1]]['name']
                     next_line = self.network_state.lines[next_line_id]
                     if leaving_train.station_state == TrainState.WAITING_FOR_SWAP and next_line.name == train.position:
                         self.depart_train(round_action, leaving_train, next_line)
                         break
-
     def update_all_train_routes(self, round_action: RoundAction):
         # Check if all passengers have reached their destination to prevent keep planing unnecessary tours
         passengers_not_reached_destination = [passenger_group.name for passenger_group in self.network_state.passenger_groups.values() if passenger_group.destination != passenger_group.position]
