@@ -224,7 +224,6 @@ class SimpleSolverMultipleTrainsRandom(SimpleSolverMultipleTrains):
 
         self.update_all_train_routes(round_action)
 
-        mutate_amount = 0
         # Game loop, till there are no more passengers to transport
         while True:
             round_id += 1

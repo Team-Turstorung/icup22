@@ -1,4 +1,5 @@
 from collections import defaultdict
+import sys
 
 import networkx as nx
 
@@ -181,9 +182,12 @@ def make_graph(stations: dict, train_lines: dict) -> nx.Graph:
 
 
 def parse_input_file(file_path: str) -> (NetworkState, nx.Graph):
-    with open(file_path, 'r', encoding='utf-8') as file:
-        text = file.read()
-        return parse_input_text(text)
+    if file_path == '-':
+        text = sys.stdin.read()
+    else:
+        with open(file_path, 'r', encoding='utf-8') as file:
+            text = file.read()
+    return parse_input_text(text)
 
 
 def parse_output_file(file_path: str) -> Schedule:
